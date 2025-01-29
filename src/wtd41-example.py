@@ -25,25 +25,25 @@ base_path = pathlib.Path("./examples/wtd41")
 RESAMPLING_FACTOR = 0.2
 RESAMPLING_ALGORITHM = "bilinear"
 
-DATABASE_PATH = base_path / "database/mobility.yaml"
+DATABASE_PATH           = base_path / "database/mobility.yaml"
 
-LANDUSE_MAPPING = base_path / "mappings/wtd41_landuse_mapping.yaml"
-LANDUSE_NOGO = base_path / "mappings/wtd41_landuse_nogo.yaml"
-SOILTYPE_MAPPING = base_path / "mappings/wtd41_soiltype_mapping.yaml"
+LANDUSE_MAPPING         = base_path / "mappings/wtd41_landuse_mapping.yaml"
+LANDUSE_NOGO            = base_path / "mappings/wtd41_landuse_nogo.yaml"
+SOILTYPE_MAPPING        = base_path / "mappings/wtd41_soiltype_mapping.yaml"
 MOISTURECONTENT_MAPPING = base_path / "mappings/wtd41_moisturecontent_mapping.yaml"
 
 #TODO Switch to automatic soil types detection
 SOIL_TYPES = ["SC", "GW", "CL"]
 
 # Raster locations
-AERIAL_PATH = base_path / "rasters/aerial_1m_clipped.tif"
-ELEVATION_PATH = base_path / "rasters/elevationmono_1m_clipped.tif"
-LANDUSE_PATH = base_path / "rasters/landuse_1m_clipped.tif"
-SOILTYPE_PATH = base_path / "rasters/soiltype30_1m_clipped.tif"
-MOISTURECONTENT_PATH = base_path / "rasters/moisturecontent15_1m_clipped.tif"
-EXPORT_PATH = base_path / "export/"
+AERIAL_PATH             = base_path / "rasters/aerial_1m_clipped.tif"
+ELEVATION_PATH          = base_path / "rasters/elevationmono_1m_clipped.tif"
+LANDUSE_PATH            = base_path / "rasters/landuse_1m_clipped.tif"
+SOILTYPE_PATH           = base_path / "rasters/soiltype30_1m_clipped.tif"
+MOISTURECONTENT_PATH    = base_path / "rasters/moisturecontent15_1m_clipped.tif"
+EXPORT_PATH             = base_path / "export/"
 WAYPOINT_START = (400, 350)
-WAYPOINT_END = (120, 50)
+WAYPOINT_END   = (120,  50)
 
 # Initialise logger
 LOG_LEVEL = logging.INFO
@@ -97,7 +97,7 @@ elevation_map.plot(show=False, export=EXPORT_PATH)
 # ========================
 #  DIRECTIONAL SLOPE MAPS
 # ========================
-#TODO Switch directional slope maps generation to user-initiated
+# TODO Switch directional slope maps generation to user-initiated
 # Instantiate a slope map object (this will automatically compute directional slope maps!)
 slope_map = SlopeMap("WTD-41", elevation_map)
 
