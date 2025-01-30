@@ -13,7 +13,7 @@ from matplotlib.colors import \
     ListedColormap  # Used for the definition of discrete color maps
 from rasterio.enums import Resampling  # Used for rasters resampling operations
 
-log = logging.getLogger("moma.mapping")
+log = logging.getLogger("MOMA")
 
 
 class Raster(ABC):
