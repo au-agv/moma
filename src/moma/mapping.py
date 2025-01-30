@@ -383,8 +383,8 @@ class AerialMap(Map):
 
         if export or show:
             plt.close()
-
-        return (figure, axes)
+        else:
+            return (figure, axes)
 
 
 class ElevationMap(Map):
