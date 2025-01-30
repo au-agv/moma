@@ -28,10 +28,16 @@ class moma():
             database/
                 mobility.yaml
             mappings/
-                'site_name'_landuse_mapping.yaml
-                'site_name'_landuse_nogo.yaml
-                'site_name'_soiltype_mapping.yaml
-                'site_name'_moisturecontent_mapping.yaml
+                landuse_mapping.yaml
+                landuse_nogo.yaml
+                soiltype_mapping.yaml
+                moisturecontent_mapping.yaml
+            rasters/
+                aerial_1m_clipped.tif
+                elevationmono_1m_clipped.tif
+                landuse_1m_clipped.tif
+                soiltype30_1m_clipped.tif
+                moisturecontent15_1m_clipped.tif
         """
 
         base_path = pathlib.Path(path)
@@ -44,10 +50,10 @@ class moma():
         
         self.DATABASE_PATH = base_path / "database/mobility.yaml"
 
-        self.LANDUSE_MAPPING         = base_path / "mappings/" + site_name + "_landuse_mapping.yaml"
-        self.LANDUSE_NOGO            = base_path / "mappings/" + site_name + "_landuse_nogo.yaml"
-        self.SOILTYPE_MAPPING        = base_path / "mappings/" + site_name + "_soiltype_mapping.yaml"
-        self.MOISTURECONTENT_MAPPING = base_path / "mappings/" + site_name + "_moisturecontent_mapping.yaml"
+        self.LANDUSE_MAPPING         = base_path / "mappings/landuse_mapping.yaml"
+        self.LANDUSE_NOGO            = base_path / "mappings/landuse_nogo.yaml"
+        self.SOILTYPE_MAPPING        = base_path / "mappings/soiltype_mapping.yaml"
+        self.MOISTURECONTENT_MAPPING = base_path / "mappings/moisturecontent_mapping.yaml"
 
         #TODO Switch to automatic soil types detection
         self.SOIL_TYPES = ["SC", "GW", "CL"]
@@ -78,14 +84,28 @@ class moma():
     # ============
     #  AERIAL MAP
     # ============
-    def aerial_map(self):
-        pass
+    def aerial_map(self, show=False):
+        # Import and process the aerial map raster
+        aerial_raster = RasterRGBA(self.AERIAL_PATH)
+
+        # Resample the aerial raster by the specified factor
+        aerial_raster.resample(self.RESAMPLING_FACTOR, resampling="average")
+
+        # Saves the aerial raster to the class for later use
+        self.aerial_raster = aerial_raster
+
+        # Instantiate an aerial map object
+        aerial_map = AerialMap(self.site_name, aerial_raster)
+
+        # Show the aerial map (and save plot to disk)
+        aerial_map.plot(show=show, export=self.EXPORT_PATH)
 
     # ===============
     #  ELEVATION MAP
     # ===============
     def elevation_map(self):
-        pass
+        # Import and process the elevation map raster
+        elevation_raster = RasterMono(ELEVATION_PATH)
     
     # ========================
     #  DIRECTIONAL SLOPE MAPS
@@ -127,5 +147,7 @@ class moma():
     #  PATH PLANNER
     # ==============
     def path_planner(self, waypoint_start, waypoint_end):
-        self.waypoint_start = waypoint_start
-        self.waypoint_end = waypoint_end
+        # Flattens the start and end waypoints
+        self.waypoint_start = np.ravel_multi_index(waypoint_start,
+                                      self.aerial_raster.data[0].shape)
+        self.waypoint_end = np.ravel_multi_index(waypoint_end, self.aerial_raster.data[0].shape)
