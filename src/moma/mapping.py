@@ -310,7 +310,10 @@ class RasterRGBA(Raster):
         raster = rasterio.open(self.path, "r")
 
         (py, px) = raster.index(lon, lat)
-
+        
+        # Close RasterIO raster handle
+        raster.close()
+        
         return (py, -px)
 
     def save(self, path):
