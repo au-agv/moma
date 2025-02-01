@@ -30,6 +30,7 @@ rasterio = "1.3.7"
 scipy = "=1.10.1"
 shapely = "2.0.6"
 terracotta = "0.8.0"
+jax = "<=0.5.0"
 
 [tool.poetry.group.documentation.dependencies]
 breathe = "^4.35.0"
