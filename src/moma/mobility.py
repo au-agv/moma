@@ -12,6 +12,11 @@ import yaml
 
 from moma.mapping import DirectionalMap
 
+import jax
+import jax.numpy as jnp
+from jax import jit
+from jax.scipy.interpolate import RegularGridInterpolator
+
 log = logging.getLogger("MOMA")
 
 
@@ -96,6 +101,8 @@ class MobilityAnalysis():
             # Find unique entries
             parameters = [np.unique(parameter) for parameter in parameters]
 
+            values = np.array(values).reshape(np.flip(np.array([len(parameter) for parameter in parameters]))).T
+
             log.info(
                 f"Initialising new mobility tensor for soil {soil_type} with settings:\n\tParameters: {parameters}, Values: {values}"
             )
@@ -122,23 +129,18 @@ class MobilityTensor():
         self.soil_type = soil_type
         self.parameters = parameters
 
-        # Parameters is a list of NumPy arrays
-        parameters_grid = np.meshgrid(*parameters)
-
-        # Define a grid for evaluation of the soil parameters
-        points = np.stack([parameter.ravel() for parameter in parameters_grid],
-                          -1)
-
         log.info(
-            f"Initialising new RBF interpolator for soil {soil_type} using 2 neighbours and kernel \"linear\""
+            f"Initialising new RegularGridInterpolator for soil {soil_type}, using extrapolation for points outside the grid"
         )
 
-        # Initialise linear radial-basis function interpolator
-        self.interpolator = spi.RBFInterpolator(points,
-                                                values,
-                                                smoothing=0,
-                                                neighbors=3,
-                                                kernel="linear")
+        #TODO: Handle cases where the grid is not regular, could be using a different interpolator to fill the missing grid points
+        #TODO: Standardize the structure of the parameters and values in the database
+
+        # Initialise linear radial-basis function interpolator 
+        self.interpolator = RegularGridInterpolator(self.parameters,
+                                                    values,
+                                                    method="linear", 
+                                                    fill_value=None)
 
     def __call__(self, call):
         """Evaluate radial-basis function interpolator at the provided n-tuple
@@ -206,8 +208,10 @@ class MobilityMap(Map):
     def __init__(self, direction, slope_map, land_use_map, no_go_map,
                  moisture_content_map, soil_type_map, mobility_tensors):
 
+        log.info("Initialising new mobility map.")
+
         # The mobility map is initialised with zero-speeds, using land use map for shape reference
-        self.data = np.zeros(no_go_map.data.shape)
+        self.data = jnp.zeros(no_go_map.data.shape)
 
         # Set direction associated with mobility map
         self.direction = direction
@@ -219,57 +223,69 @@ class MobilityMap(Map):
         self.moisture_content_map = moisture_content_map
         self.no_go_map = no_go_map
 
-        #
-        self.mobility_tensors = mobility_tensors
+        #TODO: Maybe convert soil type map ealier in the process to be more efficient
+
+        # Converts soil type map to a map of integers and mobility tensors to a list
+        self.mobility_tensors = []
+        self.soil_dict = {}
+        for soil_type, mobility_tensor in mobility_tensors.items():
+            self.mobility_tensors.append(mobility_tensor)
+            self.soil_type_map.soilarray[self.soil_type_map.soilarray == soil_type] = len(self.mobility_tensors) - 1
+            self.soil_dict[len(self.mobility_tensors) - 1] = soil_type
+
+        @jit
+        def evaluate_mobility_tensor(soil, moisture, slope):
+            
+            params = jnp.array([moisture, slope])
+            return jax.lax.switch(soil, self.mobility_tensors, params)
+        self.vmap_evaluate_mobility_tensor = jax.vmap(evaluate_mobility_tensor)
 
         #TODO: You should probably convert RasterMono to a factory method and provide an empty raster constructor.
         # Initialise a raster object based on the slope map
         self.raster = slope_map.raster
 
-        #
+        log.info("Populating mobility map.")
+
         self.populate_map()
 
     def __call__(self):
 
-        return self.data
+        return np.array(self.data)
 
     def populate_map(self):
 
-        for i in range(0, self.no_go_map.data.size):
-            index = np.unravel_index(i, self.data.shape)
+        index_x, index_y = np.unravel_index(np.arange(0, self.no_go_map.data.size), self.data.shape)
 
-            #TODO: Implement land-use based nogo.
-            # Check if cell is a no-go zone based on land use
-            #if self.land_use_map.is_nogo(index):
-            #pass#self.data[index] = 0
+        no_go_mask = self.no_go_map.data[index_x, index_y] == 1
 
-            # Check if a cell is a no-go zone based on user-specified no-go zones
-            if self.no_go_map.data[index] == 1:
-                self.data[index] = 0
-                continue
+        # Vectors with index for go and no-go zones
+        no_go_index_x = index_x[ no_go_mask]
+        no_go_index_y = index_y[ no_go_mask]
+        go_index_x    = index_x[~no_go_mask]
+        go_index_y    = index_y[~no_go_mask]
 
-            # Get cell soil type
-            soil_type = self.soil_type_map.soilarray[index]
+        #TODO: Implement land-use based nogo.
+        # Check if cell is a no-go zone based on land use
+        #if self.land_use_map.is_nogo(index):
+        #pass#self.data[index] = 0
 
-            # Get cell moisture content
-            moisture_content = self.moisture_content_map.moisturearray[index]
+        # Set no-go zones to zero
+        self.data = self.data.at[no_go_index_x, no_go_index_y].set(0)
 
-            # Get cell directional slope
-            directional_slope = self.slope_map.directional_rasters[
-                self.direction].data[index]
+        # Get soil type, moisture content and directional slope for go zones
+        soil_type = jnp.array(self.soil_type_map.soilarray[go_index_x, go_index_y], dtype=jnp.int32)
+        moisture_content = jnp.array(self.moisture_content_map.moisturearray[go_index_x, go_index_y], dtype=jnp.float32)
+        directional_slope = jnp.array(self.slope_map.directional_rasters[self.direction].data[go_index_x, go_index_y])
 
-            # Take care of negative slopes and filter out for small slopes
-            if (directional_slope < 1):
-                speed = self.mobility_tensors[soil_type](np.array(
-                    [moisture_content, 0]))
-            else:
+        low_slope_mask = directional_slope < 1
 
-                # Get corresponding tensor speed
-                speed = self.mobility_tensors[soil_type](np.array(
-                    [moisture_content, directional_slope]))
+        # Take care of negative slopes and filter out for small slopes
+        self.data = self.data.at[go_index_x[low_slope_mask], go_index_y[low_slope_mask]].set(
+            self.vmap_evaluate_mobility_tensor(soil_type[low_slope_mask], moisture_content[low_slope_mask], jnp.zeros_like(moisture_content[low_slope_mask])))
 
-            # Assign speed value
-            self.data[index] = speed
+        # Get corrosponding tensor speed
+        self.data = self.data.at[go_index_x[~low_slope_mask], go_index_y[~low_slope_mask]].set(
+            self.vmap_evaluate_mobility_tensor(soil_type[~low_slope_mask], moisture_content[~low_slope_mask], directional_slope[~low_slope_mask]))
 
         # Update raster
         self.raster.data = self.data
@@ -286,7 +302,7 @@ class MobilityMap(Map):
             self.data[index] = speed_interpolator(slope_dataset[index])
 
     def plot(self, show=True, export=False):
-
+        
         _, axes = plt.subplots(1, 1)
 
         (_, axes, color_bar, _) = self.raster.plot(show=False, export=False)

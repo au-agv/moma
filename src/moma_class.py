@@ -146,7 +146,7 @@ class MOMA():
 
         # Instantiate a land use map object
         self.landuse_map = LandUseMap(self.site_name, landuse_raster, landuse_valuemap,
-                                 landuse_nogo)
+                                      landuse_nogo)
 
         # Show the land use map
         self.landuse_map.plot(show=show, export=self.EXPORT_PATH)
@@ -220,8 +220,8 @@ class MOMA():
         for direction in directions:
             self.log.info(f"Generating mobility map in the {direction} direction.")
             self.mobility_maps[direction] = MobilityMap(direction, self.slope_map, self.landuse_map, 
-                                                   self.nogo_map, self.moisturecontent_map, 
-                                                   self.soiltype_map, mobility_analysis.mobility_tensors)
+                                                        self.nogo_map, self.moisturecontent_map, 
+                                                        self.soiltype_map, mobility_analysis.mobility_tensors)
 
             # Show the mobility map
             self.mobility_maps[direction].plot(show=show, export=self.EXPORT_PATH)
@@ -244,7 +244,7 @@ class MOMA():
         
         # Find the shortest path between two waypoints
         shortpath = find_shortest_path(directional_mobility_graph, 
-                                            self.waypoint_start, self.waypoint_end)
+                                       self.waypoint_start, self.waypoint_end)
         shortpath.print_path(raster=self.elevation_map.raster)
 
         shortpath.smoothen_spline(self.mobility_maps["N"].data.shape)

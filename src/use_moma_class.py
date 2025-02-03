@@ -39,5 +39,5 @@ moma.generate_soil_type_map(show=show_plots)
 moma.generate_moisture_content_map(show=show_plots)
 moma.generate_no_go_map(nogo_zones, show=show_plots)
 moma.generate_directional_mobility_maps(vehicle, directions="all", show=show_plots)
-moma.path_planner(waypoint_start, waypoint_end, show=True)
+#moma.path_planner(waypoint_start, waypoint_end, show=show_plots)
 
