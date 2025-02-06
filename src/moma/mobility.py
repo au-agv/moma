@@ -235,7 +235,6 @@ class MobilityMap(Map):
 
         @jit
         def evaluate_mobility_tensor(soil, moisture, slope):
-            
             params = jnp.array([moisture, slope])
             return jax.lax.switch(soil, self.mobility_tensors, params)
         self.vmap_evaluate_mobility_tensor = jax.vmap(evaluate_mobility_tensor)
@@ -313,6 +312,7 @@ class MobilityMap(Map):
             plt.savefig(export / f"Mobility map ({self.direction}).pdf",
                         format="pdf")
 
+        #TODO: for some reasons it opens two windows only one with content
         if show:
             plt.show()
 
