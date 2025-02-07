@@ -14,7 +14,7 @@ from moma.mapping import DirectionalMap
 
 import jax
 import jax.numpy as jnp
-from jax import jit
+from jax import jit, vmap
 from jax.scipy.interpolate import RegularGridInterpolator
 
 log = logging.getLogger("MOMA")
@@ -53,6 +53,8 @@ class MobilityAnalysis():
 
         # Pre-allocate mobility tensors dictionary
         self.mobility_tensors = {}
+
+        self.vehicle = vehicle
 
     def load_vehicle_metrics(self, database_path, vehicle):
         """Load simulation results database subset for a given vehicle.
@@ -108,7 +110,7 @@ class MobilityAnalysis():
             )
 
             self.mobility_tensors[soil_type] = MobilityTensor(
-                soil_type, parameters, values)
+                soil_type, parameters, values, self.vehicle)
 
 
 class MobilityTensor():
@@ -117,7 +119,7 @@ class MobilityTensor():
     A mobility tensor object is an n-dimensional interpolator defined for a given soil type and an arbitrarily long set of parameter for the given soil. When called with an n-tuple of parameters as argument, it returns the interpolator evaluation for the given soil parameters coordinate.
     """
 
-    def __init__(self, soil_type, parameters, values):
+    def __init__(self, soil_type, parameters, values, vehicle):
         """Mobility tensor object constructor.
 
         Args:
@@ -128,6 +130,7 @@ class MobilityTensor():
 
         self.soil_type = soil_type
         self.parameters = parameters
+        self.vehicle = vehicle
 
         log.info(
             f"Initialising new RegularGridInterpolator for soil {soil_type}, using extrapolation for points outside the grid"
@@ -205,13 +208,13 @@ class DirectionalMobilityMap(DirectionalMap):
 
 class MobilityMap(Map):
 
-    def __init__(self, direction, slope_map, land_use_map, no_go_map,
+    def __init__(self, direction, slope_map, land_use_map, nogo_map,
                  moisture_content_map, soil_type_map, mobility_tensors):
 
         log.info("Initialising new mobility map.")
 
         # The mobility map is initialised with zero-speeds, using land use map for shape reference
-        self.data = jnp.zeros(no_go_map.data.shape)
+        self.data = jnp.zeros(nogo_map.data.shape)
 
         # Set direction associated with mobility map
         self.direction = direction
@@ -221,7 +224,7 @@ class MobilityMap(Map):
         self.land_use_map = land_use_map
         self.soil_type_map = soil_type_map
         self.moisture_content_map = moisture_content_map
-        self.no_go_map = no_go_map
+        self.nogo_map = nogo_map
 
         #TODO: Maybe convert soil type map ealier in the process to be more efficient
 
@@ -237,7 +240,7 @@ class MobilityMap(Map):
         def evaluate_mobility_tensor(soil, moisture, slope):
             params = jnp.array([moisture, slope])
             return jax.lax.switch(soil, self.mobility_tensors, params)
-        self.vmap_evaluate_mobility_tensor = jax.vmap(evaluate_mobility_tensor)
+        self.vmap_evaluate_mobility_tensor = vmap(evaluate_mobility_tensor)
 
         #TODO: You should probably convert RasterMono to a factory method and provide an empty raster constructor.
         # Initialise a raster object based on the slope map
@@ -253,23 +256,22 @@ class MobilityMap(Map):
 
     def populate_map(self):
 
-        index_x, index_y = np.unravel_index(np.arange(0, self.no_go_map.data.size), self.data.shape)
+        index_x, index_y = np.unravel_index(np.arange(0, self.nogo_map.data.size), self.data.shape)
 
-        no_go_mask = self.no_go_map.data[index_x, index_y] == 1
+        # Check if cell is a no-go zone based on defined danger zones and land use
+        nogo_defined_zones = self.nogo_map.data[index_x, index_y]
+        land_use_nogo_mask = self.land_use_map.nogo[index_x, index_y]
+
+        nogo_mask = np.logical_or(nogo_defined_zones, land_use_nogo_mask)
 
         # Vectors with index for go and no-go zones
-        no_go_index_x = index_x[ no_go_mask]
-        no_go_index_y = index_y[ no_go_mask]
-        go_index_x    = index_x[~no_go_mask]
-        go_index_y    = index_y[~no_go_mask]
-
-        #TODO: Implement land-use based nogo.
-        # Check if cell is a no-go zone based on land use
-        #if self.land_use_map.is_nogo(index):
-        #pass#self.data[index] = 0
+        nogo_index_x = index_x[ nogo_mask]
+        nogo_index_y = index_y[ nogo_mask]
+        go_index_x   = index_x[~nogo_mask]
+        go_index_y   = index_y[~nogo_mask]
 
         # Set no-go zones to zero
-        self.data = self.data.at[no_go_index_x, no_go_index_y].set(0)
+        self.data = self.data.at[nogo_index_x, nogo_index_y].set(0)
 
         # Get soil type, moisture content and directional slope for go zones
         soil_type = jnp.array(self.soil_type_map.soilarray[go_index_x, go_index_y], dtype=jnp.int32)
@@ -309,7 +311,7 @@ class MobilityMap(Map):
         color_bar.ax.set_ylabel("Speed (m/s)", rotation=270)
 
         if export:
-            plt.savefig(export / f"Mobility map ({self.direction}).pdf",
+            plt.savefig(export / f"{self.mobility_tensors[0].vehicle} Mobility map ({self.direction}).pdf",
                         format="pdf")
 
         #TODO: for some reasons it opens two windows only one with content

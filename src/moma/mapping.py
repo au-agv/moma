@@ -13,6 +13,10 @@ from matplotlib.colors import \
     ListedColormap  # Used for the definition of discrete color maps
 from rasterio.enums import Resampling  # Used for rasters resampling operations
 
+import jax
+import jax.numpy as jnp
+from jax import jit, vmap
+
 log = logging.getLogger("MOMA")
 
 
@@ -562,30 +566,50 @@ class LandUseMap(ParameterMap):
         self.name = name
         self.raster = raster
         self.value_map = value_map
-        self.nogo = nogo
 
         log.info(f"Provided value map: {value_map}")
         log.info(f"Provided nogo map: {nogo}")
 
-    def is_nogo(self, index):
+        
+        # Map colors from RGB integer values to corresponding map quantity (e.g. "255: "EC030")
+        self.col_dict = {hex_to_rgb(k): v for k, v in self.value_map.items()}
+        
+        self.rgb = jnp.dstack(
+            (self.raster.data[0], self.raster.data[1], self.raster.data[2]))
 
-        # TODO Implement land-use based nogo.
-        pass
+        # List of landuse RGB that is nogo
+        self.rgb_nogo = np.zeros(256**3)
+
+        for rgb, landuse in self.col_dict.items():
+            if nogo[landuse]:
+                self.rgb_nogo[rgb] = 1 
+        self.rgb_nogo = jnp.array(self.rgb_nogo)
+
+
+        @jit
+        def is_nogo(index_x, index_y):
+            rgb_value = self.rgb[index_x, index_y, :]
+            combined_rgb = rgb_value[0] * 256 * 256 + rgb_value[1] * 256 + rgb_value[2]
+            
+            return self.rgb_nogo[combined_rgb]
+
+        self.vmap_is_nogo = vmap(is_nogo)
+
+        index_x, index_y = jnp.unravel_index(np.arange(0, self.raster.data[0].size), self.raster.data[0].shape)
+        self.nogo = self.vmap_is_nogo(index_x, index_y)
+        self.nogo = np.array(self.nogo).reshape(self.raster.data[0].shape)
 
     def plot(self, show=False, export=False):
-
-        # Map colors from RGB integer values to corresponding map quantity (e.g. "255: "EC030")
-        col_dict = {hex_to_rgb(k): v for k, v in self.value_map.items()}
 
         # Generate a colormap based on available colors
         discrete_colormap = ListedColormap(
             [k for k, _ in self.value_map.items()])
 
         # Define a description for each colour category - order matters!
-        labels = [str(value) for value in col_dict.values()]
+        labels = [str(value) for value in self.col_dict.values()]
 
         # Generate normalization bins
-        normalization_bins = np.sort([*col_dict.keys()]) + 0.5
+        normalization_bins = np.sort([*self.col_dict.keys()]) + 0.5
         normalization_bins = np.insert(normalization_bins, 0,
                                        np.min(normalization_bins) - 1.0)
 
@@ -598,9 +622,8 @@ class LandUseMap(ParameterMap):
 
         # Plot our figure
         figure, axes = plt.subplots()
-        rgb = np.dstack(
-            (self.raster.data[0], self.raster.data[1], self.raster.data[2]))
-        image = axes.imshow(rgb, cmap=discrete_colormap, norm=normalization)
+
+        image = axes.imshow(self.rgb, cmap=discrete_colormap, norm=normalization)
 
         # Set spacing between color_bar entries
         spacing = normalization_bins[1:] - normalization_bins[:-1]
@@ -803,15 +826,16 @@ class NoGoMap(Map):
     """No-go map
     """
 
-    def __init__(self, name, aerial):
+    def __init__(self, name, vehicle, aerial, landuse):
 
-        log.info(f"Initialising no-go zones map site {name}.")
+        log.info(f"Initialising no-go zones map site {name}, vehicle {vehicle}.")
 
-        self.name = name
+        self.vehicle = vehicle
         self.aerial = aerial
         self.data = np.zeros(
             aerial.raster.data[0].shape
         )  # We are using the aerial red channel to deduct shape
+        self.landuse = landuse
         self.zones = []
 
     def add_zone(self, x_min, x_max, y_min, y_max, description=None):
@@ -859,10 +883,14 @@ class NoGoMap(Map):
         font_style = dict(fontsize="x-small", color="white")
 
         # Create custom colormap
-        colormap = mpl.colors.ListedColormap(["none", "crimson"])
+        colormap1 = mpl.colors.ListedColormap(["none", "darkorange"])
+        colormap2 = mpl.colors.ListedColormap(["none", "crimson"])
+
+        # Add no-go from land use
+        axes.imshow(self.landuse.nogo, vmin=0, vmax=1, cmap=colormap1, alpha=0.7)
 
         # Plot no-go zones
-        axes.imshow(self.data, cmap=colormap, alpha=0.7)
+        axes.imshow(self.data, vmin=0, vmax=1, cmap=colormap2, alpha=0.7)
 
         # Add no-go zone labels
         for entry in self.zones:
@@ -880,7 +908,7 @@ class NoGoMap(Map):
                       va="center")
 
         if export:
-            plt.savefig(export / f"No-go map.pdf", format="pdf")
+            plt.savefig(export / f"{self.vehicle} No-go map.pdf", format="pdf")
 
         if show:
             plt.show()

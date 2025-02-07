@@ -3,7 +3,6 @@
 
 import logging
 import os
-import pathlib
 
 import numpy as np
 import rasterio as rio
@@ -14,58 +13,16 @@ from coloredlogs import ColoredFormatter
 from coloredlogs import ColoredFormatter
 
 from moma.mapping import (AerialMap, ElevationMap, LandUseMap,
-                          MoistureContentMap, NoGoMap, RasterMono, RasterRGBA,
+                          MoistureContentMap, NoGoMap,
                           SlopeMap, SoilTypeMap)
 from moma.mobility import (DirectionalMobilityMap, MobilityAnalysis,
                            MobilityMap)
 from moma.planning import find_shortest_path, make_speed_graph
 
+from moma.dataloader import get_dataloader
+
 class MOMA():
-    def __init__(self, path):
-        """
-        path to the site folder with the following structure:
-        site_name/
-            database/
-                mobility.yaml
-            mappings/
-                landuse_mapping.yaml
-                landuse_nogo.yaml
-                soiltype_mapping.yaml
-                moisturecontent_mapping.yaml
-            rasters/
-                aerial_1m_clipped.tif
-                elevationmono_1m_clipped.tif
-                landuse_1m_clipped.tif
-                soiltype30_1m_clipped.tif
-                moisturecontent15_1m_clipped.tif
-        """
-
-        base_path = pathlib.Path(path)
-        self.base_path = base_path
-        site_name = path.split("/")[-1]
-        self.site_name = site_name
-
-        self.RESAMPLING_FACTOR = 0.2
-        self.RESAMPLING_ALGORITHM = "bilinear"
-        
-        self.DATABASE_PATH = base_path / "database/mobility.yaml"
-
-        self.LANDUSE_MAPPING         = base_path / "mappings/landuse_mapping.yaml"
-        self.LANDUSE_NOGO            = base_path / "mappings/landuse_nogo.yaml"
-        self.SOILTYPE_MAPPING        = base_path / "mappings/soiltype_mapping.yaml"
-        self.MOISTURECONTENT_MAPPING = base_path / "mappings/moisturecontent_mapping.yaml"
-
-        #TODO Switch to automatic soil types detection
-        self.SOIL_TYPES = ["SC", "GW", "CL"]
-        
-        # Raster locations
-        self.AERIAL_PATH          = base_path / "rasters/aerial_1m_clipped.tif"
-        self.ELEVATION_PATH       = base_path / "rasters/elevationmono_1m_clipped.tif"
-        self.LANDUSE_PATH         = base_path / "rasters/landuse_1m_clipped.tif"
-        self.SOILTYPE_PATH        = base_path / "rasters/soiltype30_1m_clipped.tif"
-        self.MOISTURECONTENT_PATH = base_path / "rasters/moisturecontent15_1m_clipped.tif"
-        self.EXPORT_PATH          = base_path / "export/"
-
+    def __init__(self, site_path, vehicle_path, site_name, vehicle_name):
         # Initialise logger
         LOG_LEVEL = logging.INFO
         LOGFORMAT = "  %(levelname)s %(message)s"
@@ -79,14 +36,44 @@ class MOMA():
         self.log.addHandler(stream)
         os.system("clear")
 
-        self.log.info("Initialising MOMA")
+        base_path = site_path / site_name
+        self.base_path = base_path
+        self.site_name = site_name
+
+        # Database for vehicle mobility and landuse_nogo
+        self.vehicle_path = vehicle_path
+        self.vehicle = vehicle_name
+
+        self.log.info(f"Initialising MOMA for \n\tsite: {self.site_name} \n\tvehicle: {self.vehicle}")
+
+        with open(base_path / "site.yaml") as site_yaml:
+            site_yaml = yaml.load(site_yaml, Loader=yaml.SafeLoader)
+        self.datasource  = site_yaml["DataSource"]
+        self.coordinates = site_yaml["Coordinates"]
+        self.nogo_zones  = site_yaml["NoGoZones"]
+        
+        self.dataloader = get_dataloader(base_path, self.datasource, self.coordinates)
+        self.log.info(f"Data source: {self.dataloader.source}")
+
+        self.RESAMPLING_FACTOR = 0.2
+        self.RESAMPLING_ALGORITHM = "bilinear"
+
+        #TODO Switch to automatic soil types detection
+        self.SOIL_TYPES = ["SC", "GW", "CL"]
+        
+        # Additional mapping imformation
+        self.LANDUSE_MAPPING         = base_path / "mappings/landuse_mapping.yaml"
+        self.SOILTYPE_MAPPING        = base_path / "mappings/soiltype_mapping.yaml"
+        self.MOISTURECONTENT_MAPPING = base_path / "mappings/moisturecontent_mapping.yaml"
+
+        self.EXPORT_PATH          = base_path / "export/"
 
     # ============
     #  AERIAL MAP
     # ============
     def generate_aerial_map(self, show=False):
         # Import and process the aerial map raster
-        self.aerial_raster = RasterRGBA(self.AERIAL_PATH)
+        self.aerial_raster = self.dataloader.get_aerial_raster()
 
         # Resample the aerial raster by the specified factor
         self.aerial_raster.resample(self.RESAMPLING_FACTOR, resampling="average")
@@ -102,7 +89,7 @@ class MOMA():
     # ===============
     def generate_elevation_map(self, show=False):
         # Import and process the elevation map raster
-        elevation_raster = RasterMono(self.ELEVATION_PATH)
+        elevation_raster = self.dataloader.get_elevation_raster()
 
         # Resample the elevation raster by the specified factor
         elevation_raster.resample(self.RESAMPLING_FACTOR, resampling=self.RESAMPLING_ALGORITHM)
@@ -129,7 +116,7 @@ class MOMA():
     # ==============
     def generate_land_use_map(self, show=False):
         # Load land use raster
-        landuse_raster = RasterRGBA(self.LANDUSE_PATH)
+        landuse_raster = self.dataloader.get_landuse_raster()
 
         # Resample the land use raster by the specified factor
         landuse_raster.resample(self.RESAMPLING_FACTOR, resampling="nearest")
@@ -141,8 +128,9 @@ class MOMA():
 
         # Import land use no-go mappings
         #TODO Get rid of the hard-coded land use no-go mappings
-        with open(self.LANDUSE_NOGO, encoding="utf8") as landuse_nogo_file:
+        with open(self.vehicle_path / "landuse_nogo.yaml", encoding="utf8") as landuse_nogo_file:
             landuse_nogo = yaml.load(landuse_nogo_file, Loader=yaml.SafeLoader)
+            landuse_nogo = landuse_nogo[self.vehicle]
 
         # Instantiate a land use map object
         self.landuse_map = LandUseMap(self.site_name, landuse_raster, landuse_valuemap,
@@ -156,7 +144,7 @@ class MOMA():
     # ===============
     def generate_soil_type_map(self, show=False):
         # Generate soil type map
-        soiltype_raster = RasterRGBA(self.SOILTYPE_PATH)
+        soiltype_raster = self.dataloader.get_soiltype_raster()
 
         # Resample the soil type raster by the specified factor
         soiltype_raster.resample(self.RESAMPLING_FACTOR, resampling="nearest")
@@ -175,7 +163,7 @@ class MOMA():
     # ======================
     def generate_moisture_content_map(self, show=False):
         # Generate moisture content map
-        moisturecontent_raster = RasterRGBA(self.MOISTURECONTENT_PATH)
+        moisturecontent_raster = self.dataloader.get_moisturecontent_raster()
 
         # Resample the moisture content raster by the specified factor
         moisturecontent_raster.resample(self.RESAMPLING_FACTOR, resampling="nearest")
@@ -191,13 +179,13 @@ class MOMA():
     # ===========
     #  NO-GO MAP
     # ===========
-    def generate_no_go_map(self, nogo_zones=None, show=False):
+    def generate_no_go_map(self, show=False):
         # Generate no-go map, use aerial map for visualization
-        self.nogo_map = NoGoMap(self.site_name, self.aerial_map)
+        self.nogo_map = NoGoMap(self.site_name, self.vehicle, self.aerial_map, self.landuse_map)
 
         # Add no-go zones from a list of zones with the format: [[x1, x2, y1, y2, "description"], ...]
-        if nogo_zones is not None:
-            for zone in nogo_zones:
+        if self.nogo_zones is not None:
+            for zone in self.nogo_zones:
                 self.nogo_map.add_zone(*zone)
         
         # Show the no-go map
@@ -207,12 +195,12 @@ class MOMA():
     # ===========================
     #  DIRECTIONAL MOBILITY MAPS
     # ===========================
-    def generate_directional_mobility_maps(self, vehicle, directions="all", show=False):
+    def generate_directional_mobility_maps(self, directions="all", show=False):
         if directions == "all":
             directions = ["N", "S", "W", "E", "NW", "NE", "SW", "SE"]
         # Generate mobility tensors
         soil_parameter = ["moisture_content"]
-        mobility_analysis = MobilityAnalysis(self.DATABASE_PATH, vehicle, self.SOIL_TYPES, soil_parameter)
+        mobility_analysis = MobilityAnalysis(self.vehicle_path / "mobility.yaml", self.vehicle, self.SOIL_TYPES, soil_parameter)
         mobility_analysis.generate_mobility_tensors("slope")
 
         # Generate mobility maps
@@ -250,7 +238,7 @@ class MOMA():
         shortpath.smoothen_spline(self.mobility_maps["N"].data.shape)
 
         # Import and process the elevation map raster
-        elevation_raster_back = RasterMono(self.ELEVATION_PATH)
+        elevation_raster_back = self.dataloader.get_elevation_raster
 
         # Resample the elevation raster by the specified factor
         elevation_raster_back.resample(self.RESAMPLING_FACTOR, resampling=self.RESAMPLING_ALGORITHM)
