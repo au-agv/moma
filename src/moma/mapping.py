@@ -585,12 +585,10 @@ class LandUseMap(ParameterMap):
                 self.rgb_nogo[rgb] = 1 
         self.rgb_nogo = jnp.array(self.rgb_nogo)
 
-
         @jit
         def is_nogo(index_x, index_y):
-            rgb_value = self.rgb[index_x, index_y, :]
+            rgb_value = self.rgb[index_x, index_y, :].astype(int)
             combined_rgb = rgb_value[0] * 256 * 256 + rgb_value[1] * 256 + rgb_value[2]
-            
             return self.rgb_nogo[combined_rgb]
 
         self.vmap_is_nogo = vmap(is_nogo)
