@@ -1,0 +1,202 @@
+---
+HardTerrain-sl00_0-mu0_10: &wiesel-default
+  path: 'HardTerrain-sl00_0-mu0_10/Vehicle5_output.dat'
+  tags:
+    vehicle: wiesel
+    type: slope
+    soil: hard
+  parameters:
+    slope: 0.0
+    mu: 0.10
+  filtering: &filtering-default
+    time_step: 0.01
+    start: 30
+    end: 40
+    min_mu: 0.1
+    max_sigma: 0.1
+
+HardTerrain-sl02_5-mu0_10:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl02_5-mu0_10/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 2.5
+    mu: 0.10
+
+HardTerrain-sl05_0-mu0_10:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl02_5-mu0_10/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 5.0
+    mu: 0.1
+
+HardTerrain-sl07_5-mu0_10:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl07_5-mu0_10/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 7.5
+    mu: 0.1
+
+HardTerrain-sl10_0-mu0_10:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl10_0-mu0_10/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 10.0
+    mu: 0.1
+
+HardTerrain-sl12_5-mu0_10:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl12_5-mu0_10/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 12.5
+    mu: 0.1
+
+HardTerrain-sl15_0-mu0_10:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl15_0-mu0_10/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 15.0
+    mu: 0.1
+
+HardTerrain-sl20_0-mu0_10:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl20_0-mu0_10/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 20.0
+    mu: 0.1
+
+HardTerrain-sl02_5-mu0_50:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl00_0-mu0_50/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 0.0
+    mu: 0.50
+
+HardTerrain-sl02_5-mu0_50:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl02_5-mu0_50/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 2.5
+    mu: 0.50
+
+
+HardTerrain-sl05_0-mu0_50:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl02_5-mu0_50/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 5.0
+    mu: 0.50
+
+HardTerrain-sl07_5-mu0_50:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl07_5-mu0_50/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 7.5
+    mu: 0.50
+
+HardTerrain-sl10_0-mu0_50:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl10_0-mu0_50/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 10.0
+    mu: 0.50
+
+HardTerrain-sl12_5-mu0_50:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl12_5-mu0_50/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 12.5
+    mu: 0.50
+
+HardTerrain-sl15_0-mu0_50:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl15_0-mu0_50/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 15.0
+    mu: 0.50
+
+HardTerrain-sl20_0-mu0_50:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl20_0-mu0_50/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 20.0
+    mu: 0.50
+
+HardTerrain-sl00_0-mu0_80:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl00_0-mu0_80/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 0.0
+    mu: 0.80
+
+HardTerrain-sl02_5-mu0_80:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl02_5-mu0_80/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 2.5
+    mu: 0.80
+
+HardTerrain-sl05_0-mu0_80:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl02_5-mu0_80/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 5.0
+    mu: 0.80
+
+HardTerrain-sl07_5-mu0_80:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl07_5-mu0_80/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 7.5
+    mu: 0.80
+
+HardTerrain-sl10_0-mu0_80:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl10_0-mu0_80/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 10.0
+    mu: 0.80
+
+HardTerrain-sl12_5-mu0_80:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl12_5-mu0_80/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 12.5
+    mu: 0.80
+
+HardTerrain-sl15_0-mu0_80:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl15_0-mu0_80/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 15.0
+    mu: 0.80
+
+HardTerrain-sl20_0-mu0_80:
+  <<: *wiesel-default
+  path: 'HardTerrain-sl20_0-mu0_80/Vehicle5_output.dat'
+  attributes:
+    <<: *wiesel-attributes
+    slope: 20.0
+    mu: 0.80
+...
