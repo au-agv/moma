@@ -13,7 +13,6 @@ from matplotlib.colors import \
     ListedColormap  # Used for the definition of discrete color maps
 from rasterio.enums import Resampling  # Used for rasters resampling operations
 
-import jax
 import jax.numpy as jnp
 from jax import jit, vmap
 

@@ -2,5 +2,10 @@
 **/*.egg-info
 .venv/
 .vscode/
+
+test.py
+
 examples/wtd41/
 examples/sites/wtd41_copy/export
+examples/sites/Skejby/export
+examples/sites/Skejby/rasters
