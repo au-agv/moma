@@ -1,5 +1,5 @@
 DataSource: Trier_raster
-Coordinates: [0, 0, 0, 0] # [W, S, N, E] # Not important for this dataset
+Coordinates: [0, 0, 0, 0] # [W, S, E, N] # Not important for this dataset
 NoGoZones:
 #   - [x1, y1, x2, y2, Description]
     - [100, 150, 310, 340, A dangerous zone]

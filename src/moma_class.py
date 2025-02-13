@@ -62,7 +62,6 @@ class MOMA():
         self.SOIL_TYPES = ["SC", "GW", "CL"]
         
         # Additional mapping imformation
-        self.LANDUSE_MAPPING         = base_path / "mappings/landuse_mapping.yaml"
         self.SOILTYPE_MAPPING        = base_path / "mappings/soiltype_mapping.yaml"
         self.MOISTURECONTENT_MAPPING = base_path / "mappings/moisturecontent_mapping.yaml"
 
@@ -115,17 +114,12 @@ class MOMA():
     #  LAND USE MAP
     # ==============
     def generate_land_use_map(self, show=False):
-        # Load land use raster
-        landuse_raster = self.dataloader.get_landuse_raster()
+        # Load land use raster and vlaue mappings
+        landuse_raster, landuse_valuemap = self.dataloader.get_landuse_raster()
 
         # Resample the land use raster by the specified factor
         landuse_raster.resample(self.RESAMPLING_FACTOR, resampling="nearest")
     
-        # Import land use values mappings
-        #TODO Get rid of the hard-coded land use value mappings
-        with open(self.LANDUSE_MAPPING, encoding="utf8") as landuse_valuemap_file:
-            landuse_valuemap = yaml.load(landuse_valuemap_file, Loader=yaml.SafeLoader)
-
         # Import land use no-go mappings
         #TODO Get rid of the hard-coded land use no-go mappings
         with open(self.vehicle_path / "landuse_nogo.yaml", encoding="utf8") as landuse_nogo_file:

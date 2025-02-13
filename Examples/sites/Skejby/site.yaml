@@ -1,4 +1,4 @@
 DataSource: Dataforsyningen
-Coordinates: [572955, 6229509, 576252, 6231353] # [W, S, N, E]
+Coordinates: [572955, 6229509, 576252, 6231353] # [W, S, E, N]
 NoGoZones:
 #   - [x1, y1, x2, y2, Description]

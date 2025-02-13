@@ -569,7 +569,6 @@ class LandUseMap(ParameterMap):
         log.info(f"Provided value map: {value_map}")
         log.info(f"Provided nogo map: {nogo}")
 
-        
         # Map colors from RGB integer values to corresponding map quantity (e.g. "255: "EC030")
         self.col_dict = {hex_to_rgb(k): v for k, v in self.value_map.items()}
         
