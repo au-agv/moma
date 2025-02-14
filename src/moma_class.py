@@ -180,7 +180,10 @@ class MOMA():
         # Add no-go zones from a list of zones with the format: [[x1, x2, y1, y2, "description"], ...]
         if self.nogo_zones is not None:
             for zone in self.nogo_zones:
-                self.nogo_map.add_zone(*zone)
+                if type(zone[-1]) == str:
+                    self.nogo_map.add_zone(zone[0:-1], zone[-1])
+                else:
+                    self.nogo_map.add_zone(zone)
         
         # Show the no-go map
         self.nogo_map.plot(show=show, export=self.EXPORT_PATH)

@@ -429,15 +429,28 @@ class DirectionalMap(Map):
 
     DIRECTIONS = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
 
+    #DIRECTIONAL_KERNELS = {
+    #    "N": np.array([[0, 1, 0], [0, 0, 0], [0, -1, 0]]),
+    #    "S": np.array([[0, -1, 0], [0, 0, 0], [0, 1, 0]]),
+    #    "E": np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]]),
+    #    "W": np.array([[0, 0, 0], [1, 0, -1], [0, 0, 0]]),
+    #    "NW": np.array([[1, 0, 0], [0, 0, 0], [0, 0, -1]]),
+    #    "SE": np.array([[-1, 0, 0], [0, 0, 0], [0, 0, 1]]),
+    #    "NE": np.array([[0, 0, 1], [0, 0, 0], [-1, 0, 0]]),
+    #    "SW": np.array([[0, 0, -1], [0, 0, 0], [1, 0, 0]])
+    #}
+
+    # Directional kernels with averages, a is the part from the KERNELS without average
+    a = 0.5
     DIRECTIONAL_KERNELS = {
-        "N": np.array([[0, 1, 0], [0, 0, 0], [0, -1, 0]]),
-        "S": np.array([[0, -1, 0], [0, 0, 0], [0, 1, 0]]),
-        "E": np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]]),
-        "W": np.array([[0, 0, 0], [1, 0, -1], [0, 0, 0]]),
-        "NW": np.array([[1, 0, 0], [0, 0, 0], [0, 0, -1]]),
-        "SE": np.array([[-1, 0, 0], [0, 0, 0], [0, 0, 1]]),
-        "NE": np.array([[0, 0, 1], [0, 0, 0], [-1, 0, 0]]),
-        "SW": np.array([[0, 0, -1], [0, 0, 0], [1, 0, 0]])
+        "N": np.array([[(1-a)/2, a, (1-a)/2], [0, 0, 0], [-(1-a)/2, -a, -(1-a)/2]]),
+        "S": np.array([[-(1-a)/2, -a, -(1-a)/2], [0, 0, 0], [(1-a)/2, a, (1-a)/2]]),
+        "E": np.array([[-(1-a)/2, 0, (1-a)/2], [-a, 0, a], [-(1-a)/2, 0, (1-a)/2]]),
+        "W": np.array([[(1-a)/2, 0, -(1-a)/2], [a, 0, -a], [(1-a)/2, 0, -(1-a)/2]]),
+        "NW": np.array([[a, (1-a), 0], [(1-a), 0, -(1-a)], [0, -(1-a), -a]]),
+        "SE": np.array([[-a, -(1-a), 0], [-(1-a), 0, (1-a)], [0, (1-a), a]]),
+        "NE": np.array([[0, (1-a), a], [-(1-a), 0, (1-a)], [-a, -(1-a), 0]]),
+        "SW": np.array([[0, -(1-a), -a], [(1-a), 0, -(1-a)], [a, (1-a), 0]])
     }
 
     def plot(self):
@@ -584,15 +597,15 @@ class LandUseMap(ParameterMap):
         self.rgb_nogo = jnp.array(self.rgb_nogo)
 
         @jit
-        def is_nogo(index_x, index_y):
-            rgb_value = self.rgb[index_x, index_y, :].astype(int)
+        def is_nogo(index_y, index_x):
+            rgb_value = self.rgb[index_y, index_x, :].astype(int)
             combined_rgb = rgb_value[0] * 256 * 256 + rgb_value[1] * 256 + rgb_value[2]
             return self.rgb_nogo[combined_rgb]
 
         self.vmap_is_nogo = vmap(is_nogo)
 
-        index_x, index_y = jnp.unravel_index(np.arange(0, self.raster.data[0].size), self.raster.data[0].shape)
-        self.nogo = self.vmap_is_nogo(index_x, index_y)
+        index_y, index_x = jnp.unravel_index(np.arange(0, self.raster.data[0].size), self.raster.data[0].shape)
+        self.nogo = self.vmap_is_nogo(index_y, index_x)
         self.nogo = np.array(self.nogo).reshape(self.raster.data[0].shape)
 
     def plot(self, show=False, export=False):
@@ -834,20 +847,39 @@ class NoGoMap(Map):
         self.landuse = landuse
         self.zones = []
 
-    def add_zone(self, x_min, x_max, y_min, y_max, description=None):
-
-        log.info(
-            f"Adding zone \"{description}\" with bounding box [{x_min}, {x_max}, {y_min}, {y_max}]"
-        )
+    def add_zone(self, data, description=None):
+        def add_box(data, description):
+            x_min, x_max, y_min, y_max = data
+            log.info(
+                f"Adding zone \"{description}\" with bounding box [{x_min}, {x_max}, {y_min}, {y_max}]"
+            )
+            self.data[y_min:y_max, x_min:x_max] = 1
+            
+        def add_circle(data, description):
+            x, y, r = data
+            log.info(
+                f"Adding zone \"{description}\" with bounding cirle centrum [{x}, {y}] and radius {r}"
+            )
+            index_y, index_x = np.unravel_index(np.arange(0, self.data.size), self.data.shape)
+            nogo_index_x = index_x[(index_x - x)**2 + (index_y - y)**2 <= r**2]
+            nogo_index_y = index_y[(index_x - x)**2 + (index_y - y)**2 <= r**2]
+            self.data[nogo_index_y, nogo_index_x] = 1
 
         if description is None:
             description = f"Zone {len(self.zones) + 1}"
 
         self.zones.append({})
         self.zones[-1]["description"] = description
-        self.zones[-1]["vertices"] = (x_min, x_max, y_min, y_max)
+        self.zones[-1]["data"] = data
 
-        self.data[y_min:y_max, x_min:x_max] = 1
+        if len(data) == 4:
+            self.zones[-1]["type"] = "Box"
+            add_box(data, description)
+        elif len(data) == 3:
+            self.zones[-1]["type"] = "Circle"
+            add_circle(data, description)
+        else:
+            log.info(f"Unsupoorted zone type for \"{description}\" with bounding data [{data}]")
 
         log.info(f"Total number of zones updated to: {len(self.zones)}")
 
@@ -891,12 +923,26 @@ class NoGoMap(Map):
         # Add no-go zone labels
         for entry in self.zones:
             # Get no-go zone label position
-            x_min, x_max, y_min, y_max = entry["vertices"]
-            x = (x_max + x_min) / 2
-            y = (y_max + y_min) / 2
-            offset = 10
-            axes.text(x,
-                      y_max + offset,
+            data = entry["data"]
+
+            if entry["type"] == "Box":
+                x_min, x_max, y_min, y_max = data
+                x = (x_max + x_min) / 2
+                y = (y_max + y_min) / 2
+                offset = 10
+
+                txt_x = x
+                txt_y = y_max + offset
+
+            elif entry["type"] == "Circle":
+                x, y, r = data
+                offset = 10
+
+                txt_x = x
+                txt_y = y + r + offset
+            
+            axes.text(txt_x,
+                      txt_y,
                       entry["description"],
                       bbox=label_style,
                       fontdict=font_style,

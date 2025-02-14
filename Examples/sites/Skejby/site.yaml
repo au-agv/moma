@@ -1,4 +1,5 @@
 DataSource: Dataforsyningen
 Coordinates: [572955, 6229509, 576252, 6231353] # [W, S, E, N]
 NoGoZones:
-#   - [x1, y1, x2, y2, Description]
+#   - [x1, x2, y1, y2, (Description)]: Box
+#   - [x, y, r, (Description)]: Cirle

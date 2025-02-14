@@ -259,6 +259,7 @@ class MobilityMap(Map):
         index_x, index_y = np.unravel_index(np.arange(0, self.nogo_map.data.size), self.data.shape)
 
         # Check if cell is a no-go zone based on defined danger zones and land use
+        # The next two line is only neassesary since the Aerial view used to initial the NoGoMap data is one too short in the wtd41 example
         nogo_defined_zones = self.nogo_map.data[index_x, index_y]
         land_use_nogo_mask = self.land_use_map.nogo[index_x, index_y]
 
