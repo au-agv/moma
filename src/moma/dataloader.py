@@ -189,7 +189,7 @@ class DataloaderDataforsyningen:
         """ Source: https://datafordeler.dk/dataoversigt/geodanmark-ortofoto/ortofoto-foraar-wms/
         """
         if os.path.isfile(self.AERIAL_PATH):
-            log.info("Data is already stored locally and will not be downloaded again")
+            log.info("Aerial data is already stored locally and will not be downloaded again")
         else:
             local_query_params = dict(self.query_params)
             local_query_params.update(
@@ -242,7 +242,7 @@ class DataloaderDataforsyningen:
         """ Source: https://datafordeler.dk/dataoversigt/danmarks-hoejdemodel-historisk-dhm/dhm-2007-historik-wcs/
         """
         if os.path.isfile(self.ELEVATION_PATH):
-            log.info("Data is already stored locally and will not be downloaded again")
+            log.info("Elevation data is already stored locally and will not be downloaded again")
         else:
             local_query_params = dict(self.query_params)
             local_query_params.update(
@@ -268,7 +268,7 @@ class DataloaderDataforsyningen:
         """ Source: https://envs.au.dk/om-instituttet-1/faglige-omraader/samfund-miljoe-og-ressourcer/arealanvendelse-og-gis/basemap/basemap03-til-download-1
         """
         if os.path.isfile(self.LANDUSE_PATH):
-            log.info("Data is already stored locally and will not be downloaded again")
+            log.info("Landuse data is already stored locally and will not be downloaded again")
         else:
             log.info("Creating data from BaseMap04")
 
