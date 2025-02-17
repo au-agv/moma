@@ -102,10 +102,10 @@ class MOMA():
     # ========================
     #  DIRECTIONAL SLOPE MAPS
     # ========================
-    def generate_directional_slope_maps(self, show=False):
+    def generate_directional_slope_maps(self, show=False, pool_type=None, pool_weight=0.5):
         # TODO Switch directional slope maps generation to user-initiated
         # Instantiate a slope map object (this will automatically compute directional slope maps!)
-        self.slope_map = SlopeMap(self.site_name, self.elevation_map)
+        self.slope_map = SlopeMap(self.site_name, self.elevation_map, pool=pool_type, pool_weight=pool_weight)
 
         # Show the directional slope maps
         self.slope_map.plot(show=show, export=self.EXPORT_PATH)

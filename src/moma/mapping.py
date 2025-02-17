@@ -423,34 +423,74 @@ class ElevationMap(Map):
             return (figure, axes)
 
 
+def pool2d(x, kernel_size=3, stride=1, padding="same", pool_type="max"):
+    """
+    Performs 2D pooling on an input array using NumPy.
+    
+    Parameters:
+      x (np.array): Input 2D array.
+      kernel_size (int): Size of the pooling window.
+      stride (int): Stride of the pooling window.
+      padding (str): Padding mode; currently supports 'same' or None.
+      pool_type (str): Type of pooling: 'max' for max pooling, 'avg' for average pooling.
+    
+    Returns:
+      np.array: The pooled array.
+    """
+    if padding == "same":
+        pad_total = kernel_size - 1
+        pad_top = pad_total // 2
+        pad_bottom = pad_total - pad_top
+        pad_left = pad_total // 2
+        pad_right = pad_total - pad_left
+
+        if pool_type == "max":
+            if np.issubdtype(x.dtype, np.integer):
+                pad_val = np.iinfo(x.dtype).min
+            else:
+                pad_val = -np.inf
+        elif pool_type == "avg":
+            pad_val = 0
+            # For average pooling, convert integer arrays to float
+            if np.issubdtype(x.dtype, np.integer):
+                x = x.astype(np.float32)
+        else:
+            raise ValueError("pool_type must be either 'max' or 'avg'.")
+
+        x = np.pad(x, ((pad_top, pad_bottom), (pad_left, pad_right)),
+                   mode="constant", constant_values=pad_val)
+    elif not padding == None:
+        raise ValueError("Only 'same' or None padding is supported.")
+
+    # Calculate output dimensions.
+    out_rows = (x.shape[0] - kernel_size) // stride + 1
+    out_cols = (x.shape[1] - kernel_size) // stride + 1
+
+    # Create a sliding window view into the array.
+    shape = (out_rows, out_cols, kernel_size, kernel_size)
+    strides = (x.strides[0] * stride, x.strides[1] * stride, x.strides[0], x.strides[1])
+    windows = np.lib.stride_tricks.as_strided(x, shape=shape, strides=strides)
+
+    if pool_type == "max":
+        return np.max(windows, axis=(2, 3))
+    elif pool_type == "avg":
+        return np.mean(windows, axis=(2, 3))
+
 class DirectionalMap(Map):
 
     directional_rasters = {}
 
     DIRECTIONS = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
-
-    #DIRECTIONAL_KERNELS = {
-    #    "N": np.array([[0, 1, 0], [0, 0, 0], [0, -1, 0]]),
-    #    "S": np.array([[0, -1, 0], [0, 0, 0], [0, 1, 0]]),
-    #    "E": np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]]),
-    #    "W": np.array([[0, 0, 0], [1, 0, -1], [0, 0, 0]]),
-    #    "NW": np.array([[1, 0, 0], [0, 0, 0], [0, 0, -1]]),
-    #    "SE": np.array([[-1, 0, 0], [0, 0, 0], [0, 0, 1]]),
-    #    "NE": np.array([[0, 0, 1], [0, 0, 0], [-1, 0, 0]]),
-    #    "SW": np.array([[0, 0, -1], [0, 0, 0], [1, 0, 0]])
-    #}
-
-    # Directional kernels with averages, a is the part from the KERNELS without average
-    a = 0.5
+    
     DIRECTIONAL_KERNELS = {
-        "N": np.array([[(1-a)/2, a, (1-a)/2], [0, 0, 0], [-(1-a)/2, -a, -(1-a)/2]]),
-        "S": np.array([[-(1-a)/2, -a, -(1-a)/2], [0, 0, 0], [(1-a)/2, a, (1-a)/2]]),
-        "E": np.array([[-(1-a)/2, 0, (1-a)/2], [-a, 0, a], [-(1-a)/2, 0, (1-a)/2]]),
-        "W": np.array([[(1-a)/2, 0, -(1-a)/2], [a, 0, -a], [(1-a)/2, 0, -(1-a)/2]]),
-        "NW": np.array([[a, (1-a), 0], [(1-a), 0, -(1-a)], [0, -(1-a), -a]]),
-        "SE": np.array([[-a, -(1-a), 0], [-(1-a), 0, (1-a)], [0, (1-a), a]]),
-        "NE": np.array([[0, (1-a), a], [-(1-a), 0, (1-a)], [-a, -(1-a), 0]]),
-        "SW": np.array([[0, -(1-a), -a], [(1-a), 0, -(1-a)], [a, (1-a), 0]])
+        "N": np.array([[0, 1, 0], [0, 0, 0], [0, -1, 0]]),
+        "S": np.array([[0, -1, 0], [0, 0, 0], [0, 1, 0]]),
+        "E": np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]]),
+        "W": np.array([[0, 0, 0], [1, 0, -1], [0, 0, 0]]),
+        "NW": np.array([[1, 0, 0], [0, 0, 0], [0, 0, -1]]),
+        "SE": np.array([[-1, 0, 0], [0, 0, 0], [0, 0, 1]]),
+        "NE": np.array([[0, 0, 1], [0, 0, 0], [-1, 0, 0]]),
+        "SW": np.array([[0, 0, -1], [0, 0, 0], [1, 0, 0]])
     }
 
     def plot(self):
@@ -462,26 +502,32 @@ class DirectionalMap(Map):
 
 class SlopeMap(DirectionalMap):
 
-    def __init__(self, name, map_elevation):
+    def __init__(self, name, map_elevation, pool=None, pool_size=3, pool_weight=0.5):
 
         log.info(f"Initialising slope map from elevation data.")
 
         self.name = name
         self.raster = map_elevation.raster
+        self.pool = pool
+        self.pool_size = pool_size
+        self.pool_weight = pool_weight
 
         # Compute directional slopes
-        for key, _ in self.DIRECTIONAL_KERNELS.items():
-            self.directional_rasters[key] = RasterMono(self.raster.path)
-            self.directional_rasters[key].data = self.directional_slope(key)
+        for direction in self.DIRECTIONS:
+            self.directional_rasters[direction] = RasterMono(self.raster.path)
+            self.directional_rasters[direction].data = self.directional_slope(direction)
 
     def directional_slope(self, direction="N"):
 
-        log.info(f"Computing slope map in direction {direction}.")
+        log.info(f"Computing slope map in direction {direction} with pool '{self.pool}'.")
 
         # Retrieve kernel for the selected direction
         kernel = self.DIRECTIONAL_KERNELS[direction]
 
         raster = cv2.filter2D(self.raster.data, -1, kernel)
+
+        if self.pool in ["max", "avg"]:
+            raster = (1 - self.pool_weight)*raster + self.pool_weight*pool2d(raster, kernel_size=self.pool_size, pool_type=self.pool)
 
         raster = raster / (2 * self.raster.resolution_x)
 

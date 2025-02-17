@@ -32,7 +32,7 @@ moma = MOMA(sites_path, vehicles_path, args.site, args.vehicle)
 
 moma.generate_aerial_map(show=args.show_plots)
 moma.generate_elevation_map(show=args.show_plots)
-moma.generate_directional_slope_maps(show=args.show_plots)
+moma.generate_directional_slope_maps(show=args.show_plots, pool_type="avg", pool_weight=0.5)
 moma.generate_land_use_map(show=args.show_plots)
 moma.generate_soil_type_map(show=args.show_plots)
 moma.generate_moisture_content_map(show=args.show_plots)
