@@ -11,6 +11,8 @@ import rasterio
 from rasterio.transform import Affine
 from rasterio.transform import rowcol
 from rasterio.windows import Window
+from rasterio.features import rasterize
+import geopandas as gpd
 import numpy as np
 from PIL import Image
 
@@ -113,7 +115,8 @@ class DataloaderDataforsyningen:
             os.makedirs(site_path / "export")
 
         self.basemap_location = "C:/Users/nikol/OneDrive - Aarhus universitet/Master project/Map data/Basemap04_2021/lu_agg_2021.tif"
-        self.basemap_to_label = {
+        self.jordartskort_location = "C:/Users/nikol/OneDrive - Aarhus universitet/Master project/Map data/Jordlag/QGIS/Jordart_25000_v7.shp"
+        self.basemap_to_landuse_label = {
             110000: "Building",                # Building
             121000: "Built-up area",           # Build-up area with low buildings
             121110: "Building",                # Low building
@@ -160,7 +163,7 @@ class DataloaderDataforsyningen:
             800000: "Non classified",          # Non classified
             999999: "Germany",                 # Germany
         }
-        self.label_to_color = {
+        self.landuse_label_to_color = {
             "Building":                [255,   0,   0],
             "Built-up area":           [127,   0,   0],
             "Road":                    [  0,   0,   0],
@@ -177,6 +180,127 @@ class DataloaderDataforsyningen:
             "Non classified":          [255, 105, 180],
             "Germany":                 [255, 106,   0],
 }
+        self.jordart_to_soil_number = {
+            'BK - Danian bryozoan og corallian limestone'       : 1,  # limestone
+            'BY - Town'                                         : 15, # town
+            'DG - Meltwater gravel'                             : 2,  # gravel
+            'DI - Meltwater silt'                               : 3,  # silt
+            'DL - Meltwater clay'                               : 4,  # clay
+            'DS - Meltwater sand'                               : 5,  # sand
+            'DV - Alternating thin meltwater beds'              : 11, # mixed layer
+            'ED - Eocene diatomite'                             : 12, # diatomite
+            'EE - Eocene volcanic ash'                          : 13, # volcanic ash
+            'EK - Aeolian dune sand'                            : 5,  # sand
+            'ES - Aeolian sand'                                 : 5,  # sand
+            'FG - Freshwater gravel'                            : 2,  # gravel
+            'FHG - Delta gravel'                                : 2,  # gravel
+            'FHL - Delta clay'                                  : 4,  # clay
+            'FHS - Delta sand'                                  : 5,  # sand
+            'FI - Freshwater silt'                              : 3,  # silt
+            'FJ - Ocher and bog iron'                           : 14, # ore                     
+            'FK - Tufa, bog-and lake marl'                      : 6,  # chalk
+            'FL - Freshwater clay'                              : 4,  # clay
+            'FP - Freshwater gyttja'                            : 7,  # gyttja
+            'FS - Freshwater sand'                              : 5,  # sand
+            'FT - Freshwater peat'                              : 8,  # peat
+            'FV - Alternating thin freshwater beds'             : 11, # mixed layer
+            'G - Gravel / sand and gravel'                      : 2,  # gravel
+            'GC - Oligocene/Miocene/Pliocene brown coal'        : 9,  # brown coal
+            'GL - Oligocene/Miocene/Pliocene mica clay'         : 4,  # clay
+            'GS - Oligocene/Miocene/Pliocene mica sand'         : 5,  # sand
+            'GV - Oligocæn/Miocæn/Pliocæn alternating layers'   : 11, # mixed layer
+            'HG - Saltwater gravel'                             : 2,  # gravel
+            'HI - Saltwater silt'                               : 3,  # silt
+            'HL - Saltwater clay'                               : 4,  # clay
+            'HP - Saltwater gyttja'                             : 7,  # gyttja
+            'HS - Saltwater sand'                               : 5,  # sand
+            'HSG - Saltwater shell gravel'                      : 2,  # gravel
+            'HT - Saltwater peat'                               : 8,  # peat
+            'HV - Alternating thin saltwater beds, marsh'       : 10, # marsh
+            'IA - No access'                                    : 17, # non classified
+            'IT - Freshwater peat'                              : 8,  # peat
+            'K - Chalk and limestone'                           : 1,  # limestone
+            'KMG - Limey till, gravelly'                        : 2,  # gravel
+            'KML - Limey till, clayey'                          : 4,  # clay
+            'KMS - Limey till, sandy'                           : 5,  # sand
+            'KS - Miocene quartz sand'                          : 5,  # sand
+            'LL - Eocene clay, plastic clay'                    : 4,  # clay
+            'LRÅ - Abandoned pit'                               : 16, # other
+            'LSL - Landslide'                                   : 16, # other
+            'MG - Gravelly till'                                : 2,  # gravel
+            'MI - Silty till'                                   : 3,  # silt
+            'ML - Clayey till'                                  : 4,  # clay
+            'MS - Sandy till'                                   : 5,  # sand
+            'MV - Alternating thin till beds'                   : 11, # mixed layer
+            'O - Land fill'                                     : 16, # other
+            'OL - Oligocene clay'                               : 4,  # clay
+            'PKV - Pre-Quaternary layers'                       : 11, # mixed layer
+            'PL - Selandian clay, Paleocene clay'               : 4,  # clay
+            'PS - Selandian sand, Paleocene greensand'          : 5,  # sand
+            'QG - Saltwater gravel'                             : 2,  # gravel
+            'QL - Saltwater clay'                               : 4,  # clay
+            'QS - Saltwater sand'                               : 5,  # sand
+            'RL - Eocene Røsnæs clay'                           : 4,  # clay
+            'RÅ - Pit'                                          : 16, # other
+            'S - Sand'                                          : 5,  # sand
+            'SK - Campanian-Maastrichtian chalk'                : 6,  # chalk
+            'SL - Eocene Svind marl'                            : 6,  # chalk
+            'SØ - Freshwater'                                   : 16, # other
+            'TA - Technical and artificial construction'        : 16, # other
+            'TG - Meltwater gravel'                             : 2,  # gravel
+            'TI - Meltwater silt'                               : 3,  # silt
+            'TL - Meltwater clay'                               : 4,  # clay
+            'TS - Meltwater sand'                               : 5,  # sand
+            'TV - Alternating thin meltwater beds'              : 11, # mixed layer
+            'X - Bed unkown, no infomation'                     : 16, # other
+            'YG - Saltwater gravel'                             : 2,  # gravel
+            'YL - Saltwater clay'                               : 4,  # clay
+            'YP - Saltwater gyttja'                             : 7,  # gyttja
+            'YS - Saltwater sand'                               : 5,  # sand
+            'ZG - Glaciolacustrine gravel'                      : 2,  # gravel
+            'ZK - Danian chalk / chalk and flint'               : 6,  # chalk
+            'ZL - Glaciolacustrine clay'                        : 4,  # clay
+            'ZS - Glaciolacustrine sand'                        : 5,  # sand
+            'ZV - Alternating thin glaciolacustrine beds'       : 11, # mixed layer
+        }
+        self.soil_number_to_label = {
+            1: "limestone",
+            2: "gravel",
+            3: "silt",
+            4: "clay",
+            5: "sand",
+            6: "chalk",
+            7: "gyttja",
+            8: "peat",
+            9: "brown coal",
+            10: "marsh",
+            11: "mixed layer",
+            12: "diatomite",
+            13: "volcanic ash",
+            14: "ore",
+            15: "town",
+            16: "other",
+            17: "non classified",
+        }
+        self.soil_label_to_color = {
+            "limestone"      : [210, 200, 170],  # Beige
+            "gravel"         : [160, 160, 160],  # Light medium gray
+            "silt"           : [130, 150, 110],  # Light brown-gray
+            "clay"           : [190, 100,  10],  # Reddish brown
+            "sand"           : [245, 210, 170],  # Warm, saturated tan
+            "chalk"          : [250, 240, 230],  # Whiter beige
+            "gyttja"         : [120, 100,  40],  # Distinct brownish olive
+            "peat"           : [ 70,  50,  30],  # Dark brown
+            "brown coal"     : [160, 100,  60],  # Rich warm brown
+            "marsh"          : [  0, 100,   0],  # Dark green
+            "mixed layer"    : [255,   0, 255],  # Vibrant magenta
+            "diatomite"      : [245, 245, 220],  # Off-white / beige
+            "volcanic ash"   : [100, 100, 100],  # Cooler medium gray
+            "ore"            : [100,  90,  80],  # Metallic dark gray with warm tint
+            "town"           : [ 50,  50,  50],  # Very dark gray
+            "other"          : [186,  85, 211],  # Vivid purple
+            "non classified" : [255, 105, 180],  # Hot pink
+        }
 
         self.query_params = {
                 "username": "DNHZAPRXQZ",
@@ -298,15 +422,15 @@ class DataloaderDataforsyningen:
                 data = raster.read(1, window=window)
                 win_transform = raster.window_transform(window)
 
-            # Initiates map with non clissified color
+            # Initiates map with color corresponding to non classified
             arr = np.zeros((data.shape[0], data.shape[1], 3), dtype=int)
-            arr[:, :, 0] = self.label_to_color["Non classified"][0]
-            arr[:, :, 1] = self.label_to_color["Non classified"][1]
-            arr[:, :, 2] = self.label_to_color["Non classified"][2]
+            arr[:, :, 0] = self.landuse_label_to_color["Non classified"][0]
+            arr[:, :, 1] = self.landuse_label_to_color["Non classified"][1]
+            arr[:, :, 2] = self.landuse_label_to_color["Non classified"][2]
 
             # Fill in colors for landuse
-            for base_map, label in self.basemap_to_label.items():
-                arr[data == base_map] = self.label_to_color[label]
+            for base_map, label in self.basemap_to_landuse_label.items():
+                arr[data == base_map] = self.landuse_label_to_color[label]
 
             # Upscale to 1 meter grid
             arr = arr.repeat(10, 0).repeat(10, 1)
@@ -339,13 +463,67 @@ class DataloaderDataforsyningen:
             new_dataset.close()
         landuse_valuemap = {}
 
-        for label, color in self.label_to_color.items():
+        for label, color in self.landuse_label_to_color.items():
             landuse_valuemap[f"#{color[0]:02X}{color[1]:02X}{color[2]:02X}"] = label
 
         return RasterRGBA(self.LANDUSE_PATH), landuse_valuemap
     
     def get_soiltype_raster(self):
-        return None
+        """ Source: https://www.geus.dk/produkter-ydelser-og-faciliteter/data-og-kort/danske-kort/download-jordartskort
+        """
+        if os.path.isfile(self.SOILTYPE_PATH):
+            log.info("Soil type data is already stored locally and will not be downloaded again")
+        else:
+            log.info("Creating data from Jordartskort")
+            log.info("Importing data from local file")
+            
+            gdf = gpd.read_file(self.jordartskort_location)
+            transform = Affine(1, 0, self.coordinates[0], 0, -1, self.coordinates[3])
+            
+            for jordart, number in self.jordart_to_soil_number.items():
+                gdf.loc[gdf.sediment == jordart, "sediment"] = number
+
+            shapes = ((geom, value) for geom, value in zip(gdf.geometry, gdf.sediment))
+            
+            log.info("Rasterizing data")
+            rasterized = rasterize(shapes, out_shape=(int(self.query_params["HEIGHT"]), int(self.query_params["WIDTH"])), transform=transform, fill=0, dtype=np.int32)
+
+            # Initiates map with color corresponding to non classified
+            arr = np.zeros((rasterized.shape[0], rasterized.shape[1], 3), dtype=int)
+            arr[:, :, 0] = self.soil_label_to_color["non classified"][0]
+            arr[:, :, 1] = self.soil_label_to_color["non classified"][1]
+            arr[:, :, 2] = self.soil_label_to_color["non classified"][2]
+
+            # Fill in colors for soil type
+            for number, label in self.soil_number_to_label.items():
+                arr[rasterized == number] = self.soil_label_to_color[label]
+
+            # Move bands to be the first dimension
+            arr = np.moveaxis(arr, 2, 0)
+            # Adding alpha layer
+            arr = np.concatenate((arr, 255*np.ones((1, arr.shape[1], arr.shape[2]), dtype=int)))
+
+            # Save the raster
+            new_dataset = rasterio.open(
+                self.SOILTYPE_PATH,
+                'w',
+                driver='GTiff',
+                height=arr.shape[1],
+                width=arr.shape[2],
+                count=4,
+                dtype=rasterized.dtype,
+                crs=rasterio.crs.CRS.from_epsg(25832),
+                transform=transform,
+            )
+            new_dataset.write(arr)
+            new_dataset.close()
+
+        soiltype_valuemap = {}
+
+        for label, color in self.soil_label_to_color.items():
+            soiltype_valuemap[f"#{color[0]:02X}{color[1]:02X}{color[2]:02X}"] = label
+
+        return RasterRGBA(self.SOILTYPE_PATH), soiltype_valuemap
     
     def get_moisturecontent_raster(self):
         return None
