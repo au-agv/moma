@@ -273,28 +273,13 @@ class RasterRGBA(Raster):
         # Create RasterIO raster handle
         with rasterio.open(self.path, "r") as raster:
 
-            #TODO Consider converting this code block to a list comprehension.
-            # Resample RGBA data
-            self.data[0] = raster.read(
-                1,
-                out_shape=shape,
-                resampling=self.RESAMPLING_METHODS.get(resampling))
-
-            self.data[1] = raster.read(
-                2,
-                out_shape=shape,
-                resampling=self.RESAMPLING_METHODS.get(resampling))
-
-            self.data[2] = raster.read(
-                3,
-                out_shape=shape,
-                resampling=self.RESAMPLING_METHODS.get(resampling))
-
-            self.data[3] = raster.read(
-                4,
-                out_shape=shape,
-                resampling=self.RESAMPLING_METHODS.get(resampling))
-
+            # Resample RGBA data for all 4 channels
+            self.data = [
+                raster.read(
+                    index, out_shape=shape, resampling=self.RESAMPLING_METHODS.get(resampling)
+                ) for index in range(1, 5)
+            ]
+            
             # Update transform
             self.transform = self.transform * raster.transform.scale(
                 (width / shape[-1]), (height / shape[-2]))
