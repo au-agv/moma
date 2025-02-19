@@ -33,6 +33,7 @@ terracotta = "0.8.0"
 jax = "<=0.5.0"
 argparse = "^1.4.0"
 requests = "^2.32.3"
+fiona = "~1.9.6"
 
 [tool.poetry.group.documentation.dependencies]
 breathe = "^4.35.0"
