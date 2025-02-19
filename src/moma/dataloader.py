@@ -70,6 +70,8 @@ class DataloaderTrier:
 
         # Additional mapping imformation
         self.LANDUSE_MAPPING         = site_path / "mappings/landuse_mapping.yaml"
+        self.SOILTYPE_MAPPING        = site_path / "mappings/soiltype_mapping.yaml"
+        self.MOISTURECONTENT_MAPPING = site_path / "mappings/moisturecontent_mapping.yaml"
         
     def get_aerial_raster(self):
         return RasterRGBA(self.AERIAL_PATH)
@@ -85,10 +87,16 @@ class DataloaderTrier:
         return RasterRGBA(self.LANDUSE_PATH), landuse_valuemap
     
     def get_soiltype_raster(self):
-        return RasterRGBA(self.SOILTYPE_PATH)
+        with open(self.SOILTYPE_MAPPING, encoding="utf8") as soiltype_mapping_file:
+            soiltype_valuemap = yaml.load(soiltype_mapping_file, Loader=yaml.SafeLoader)
+    
+        return RasterRGBA(self.SOILTYPE_PATH), soiltype_valuemap
     
     def get_moisturecontent_raster(self):
-        return RasterRGBA(self.MOISTURECONTENT_PATH)
+        with open(self.MOISTURECONTENT_MAPPING, encoding="utf8") as moisturecontent_valuemap_file:
+            moisturecontent_valuemap = yaml.load(moisturecontent_valuemap_file, Loader=yaml.SafeLoader)
+
+        return RasterRGBA(self.MOISTURECONTENT_PATH), moisturecontent_valuemap
 
 
 class DataloaderDataforsyningen:
@@ -173,17 +181,17 @@ class DataloaderDataforsyningen:
         self.query_params = {
                 "username": "DNHZAPRXQZ",
                 "password": "njp2025_AU_",
-                "BBOX": f"{self.coordinates[0]},{self.coordinates[1]},{self.coordinates[2]},{self.coordinates[3]}",
-                "WIDTH": f"{self.coordinates[2]-self.coordinates[0]}",
-                "HEIGHT": f"{self.coordinates[3]-self.coordinates[1]}"
+                "BBOX":   f"{self.coordinates[0]},{self.coordinates[1]},{self.coordinates[2]},{self.coordinates[3]}",
+                "WIDTH":  f"{self.coordinates[2] - self.coordinates[0]}",
+                "HEIGHT": f"{self.coordinates[3] - self.coordinates[1]}"
         }
 
         # Raster locations
         self.AERIAL_PATH          = site_path / ("rasters/aerial_1m_clipped" + file_subname +".tif")
         self.ELEVATION_PATH       = site_path / ("rasters/elevationmono_1m_clipped" + file_subname +".tif")
         self.LANDUSE_PATH         = site_path / ("rasters/landuse_1m_clipped" + file_subname +".tif")
-        self.SOILTYPE_PATH        = site_path / ("rasters/soiltype30_1m_clipped" + file_subname +".tif")
-        self.MOISTURECONTENT_PATH = site_path / ("rasters/moisturecontent15_1m_clipped" + file_subname +".tif")
+        self.SOILTYPE_PATH        = site_path / ("rasters/soiltype_1m_clipped" + file_subname +".tif")
+        self.MOISTURECONTENT_PATH = site_path / ("rasters/moisturecontent_1m_clipped" + file_subname +".tif")
 
     def get_aerial_raster(self):
         """ Source: https://datafordeler.dk/dataoversigt/geodanmark-ortofoto/ortofoto-foraar-wms/
@@ -314,7 +322,8 @@ class DataloaderDataforsyningen:
             arr = np.moveaxis(arr, 2, 0)
             # Adding alpha layer
             arr = np.concatenate((arr, 255*np.ones((1, arr.shape[1], arr.shape[2]), dtype=int)))
-                            
+
+            # Saves the cutted dataset                
             new_dataset = rasterio.open(
                 self.LANDUSE_PATH,
                 'w',

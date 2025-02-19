@@ -5,7 +5,6 @@ import logging
 import os
 
 import numpy as np
-import rasterio as rio
 import yaml
 
 from coloredlogs import ColoredFormatter
@@ -61,10 +60,6 @@ class MOMA():
         #TODO Switch to automatic soil types detection
         self.SOIL_TYPES = ["SC", "GW", "CL"]
         
-        # Additional mapping imformation
-        self.SOILTYPE_MAPPING        = base_path / "mappings/soiltype_mapping.yaml"
-        self.MOISTURECONTENT_MAPPING = base_path / "mappings/moisturecontent_mapping.yaml"
-
         self.EXPORT_PATH          = base_path / "export/"
 
     # ============
@@ -138,13 +133,10 @@ class MOMA():
     # ===============
     def generate_soil_type_map(self, show=False):
         # Generate soil type map
-        soiltype_raster = self.dataloader.get_soiltype_raster()
+        soiltype_raster, soiltype_valuemap = self.dataloader.get_soiltype_raster()
 
         # Resample the soil type raster by the specified factor
         soiltype_raster.resample(self.RESAMPLING_FACTOR, resampling="nearest")
-
-        with open(self.SOILTYPE_MAPPING, encoding="utf8") as soiltype_mapping_file:
-            soiltype_valuemap = yaml.load(soiltype_mapping_file, Loader=yaml.SafeLoader)
 
         # Instantiate a soil type map object
         self.soiltype_map = SoilTypeMap(self.site_name, soiltype_raster, soiltype_valuemap)
@@ -157,13 +149,10 @@ class MOMA():
     # ======================
     def generate_moisture_content_map(self, show=False):
         # Generate moisture content map
-        moisturecontent_raster = self.dataloader.get_moisturecontent_raster()
+        moisturecontent_raster, moisturecontent_valuemap = self.dataloader.get_moisturecontent_raster()
 
         # Resample the moisture content raster by the specified factor
         moisturecontent_raster.resample(self.RESAMPLING_FACTOR, resampling="nearest")
-
-        with open(self.MOISTURECONTENT_MAPPING, encoding="utf8") as moisturecontent_valuemap_file:
-            moisturecontent_valuemap = yaml.load(moisturecontent_valuemap_file, Loader=yaml.SafeLoader)
 
         self.moisturecontent_map = MoistureContentMap(self.site_name, moisturecontent_raster, moisturecontent_valuemap)
 
