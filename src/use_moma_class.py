@@ -18,7 +18,7 @@ parser.add_argument("--show_plots", help="show popup with plots", type=bool, def
 # Vehicle
 parser.add_argument("--vehicle", help="name of the vehicle to generate plots for", type=str, default="mungo")
 # Path to the site folder
-parser.add_argument("--site", help="path to the site folder", type=str, default="wtd41_copy")
+parser.add_argument("--site", help="name of the site folder", type=str, default="wtd41_copy")
 args = parser.parse_args()
 
 # Placment of sites and vehicle mobilities on the specific computer

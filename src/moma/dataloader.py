@@ -31,6 +31,21 @@ def get_dataloader(site_path, data_source, coordinates):
     else:
         raise ValueError(f"Unknown data source: {data_source}")
 
+def save_new_raster(array, path, transform):
+    new_dataset = rasterio.open(
+        path,
+        'w',
+        driver='GTiff',
+        height=array.shape[1],
+        width=array.shape[2],
+        count=4,
+        dtype=array.dtype,
+        crs=rasterio.crs.CRS.from_epsg(25832),
+        transform=transform,
+    )
+    new_dataset.write(array)
+    new_dataset.close()
+
 """
 Data loader should return the following rasters in a consistent grid along with some colormappings for them:
 - Aerial
@@ -140,7 +155,7 @@ class DataloaderDataforsyningen:
         """ Source: https://datafordeler.dk/dataoversigt/geodanmark-ortofoto/ortofoto-foraar-wms/
         """
         if os.path.isfile(self.AERIAL_PATH):
-            log.info("Aerial data is already stored locally and will not be downloaded again")
+            log.info("Aerial raster is already stored locally and will not be downloaded again")
         else:
             local_query_params = dict(self.query_params)
             local_query_params.update(
@@ -159,31 +174,21 @@ class DataloaderDataforsyningen:
             )
             url = create_url_with_parameters("services.datafordeler.dk/GeoDanmarkOrto/orto_foraar/1.0.0/WMS", local_query_params)
 
-            log.info(f"Downloading data from datafordeler, url: \n{url}")
+            log.info(f"Downloading aerial raster from datafordeler, url: \n{url}")
             res = requests.get(url)
             if res.status_code == 200:
                 img = Image.open(io.BytesIO(res.content))
                 arr = np.array(img)
-                arr = np.moveaxis(arr, 2, 0)
 
+                # Move bands to be the first dimension
+                arr = np.moveaxis(arr, 2, 0)
                 # Adding alpha layer
                 arr = np.concatenate((arr, 255*np.ones((1, arr.shape[1], arr.shape[2]), dtype=int)))
                 
                 transform = Affine(1, 0, self.coordinates[0], 0, -1, self.coordinates[3])
 
-                new_dataset = rasterio.open(
-                    self.AERIAL_PATH,
-                    'w',
-                    driver='GTiff',
-                    height=arr.shape[1],
-                    width=arr.shape[2],
-                    count=4,
-                    dtype=arr.dtype,
-                    crs=rasterio.crs.CRS.from_epsg(25832),
-                    transform=transform,
-                )
-                new_dataset.write(arr)
-                new_dataset.close()
+                save_new_raster(arr, self.AERIAL_PATH, transform)
+
             else:
                 log.info("Data could not be downloaded from source")
 
@@ -193,7 +198,7 @@ class DataloaderDataforsyningen:
         """ Source: https://datafordeler.dk/dataoversigt/danmarks-hoejdemodel-historisk-dhm/dhm-2007-historik-wcs/
         """
         if os.path.isfile(self.ELEVATION_PATH):
-            log.info("Elevation data is already stored locally and will not be downloaded again")
+            log.info("Elevation raster is already stored locally and will not be downloaded again")
         else:
             local_query_params = dict(self.query_params)
             local_query_params.update(
@@ -211,7 +216,7 @@ class DataloaderDataforsyningen:
             url = create_url_with_parameters("services.datafordeler.dk/DHMterraenBro2007/dhm_historik/1.0.0/WCS", local_query_params)
 
             #TODO fix problem with downloading data taht occurs sometimes, quickfix delete created raster and try again            
-            log.info(f"Downloading data from datafordeler, url: \n{url}")
+            log.info(f"Downloading elevation raster from datafordeler, url: \n{url}")
             urllib.request.urlretrieve(url, self.ELEVATION_PATH)
             
         return RasterMono(self.ELEVATION_PATH)
@@ -226,9 +231,9 @@ class DataloaderDataforsyningen:
             landuse_label_to_color   = loaded_data["label_to_color"]
         
         if os.path.isfile(self.LANDUSE_PATH):
-            log.info("Landuse data is already stored locally and will not be downloaded again")
+            log.info("Landuse raster is already stored locally and will not be downloaded again")
         else:
-            log.info("Creating data from BaseMap04")
+            log.info("Creating landuse raster from BaseMap04")
 
             with rasterio.open(self.basemap_location) as raster:
                 # Find area of interrest in basemap
@@ -273,20 +278,8 @@ class DataloaderDataforsyningen:
             # Adding alpha layer
             arr = np.concatenate((arr, 255*np.ones((1, arr.shape[1], arr.shape[2]), dtype=int)))
 
-            # Saves the cutted dataset                
-            new_dataset = rasterio.open(
-                self.LANDUSE_PATH,
-                'w',
-                driver='GTiff',
-                height=arr.shape[1],
-                width=arr.shape[2],
-                count=4,
-                dtype=arr.dtype,
-                crs=rasterio.crs.CRS.from_epsg(25832),
-                transform=transform,
-            )
-            new_dataset.write(arr)
-            new_dataset.close()
+            save_new_raster(arr, self.LANDUSE_PATH, transform)
+
         landuse_valuemap = {}
 
         for label, color in landuse_label_to_color.items():
@@ -305,9 +298,9 @@ class DataloaderDataforsyningen:
             soil_label_to_color    = loaded_data["label_to_color"]
         
         if os.path.isfile(self.SOILTYPE_PATH):
-            log.info("Soil type data is already stored locally and will not be downloaded again")
+            log.info("Soil type raster is already stored locally and will not be downloaded again")
         else:
-            log.info("Creating data from Jordartskort")
+            log.info("Creating soil type raster from Jordartskort")
             log.info("Importing data from local file")
             
             gdf = gpd.read_file(self.jordartskort_location)
@@ -336,20 +329,7 @@ class DataloaderDataforsyningen:
             # Adding alpha layer
             arr = np.concatenate((arr, 255*np.ones((1, arr.shape[1], arr.shape[2]), dtype=int)))
 
-            # Save the raster
-            new_dataset = rasterio.open(
-                self.SOILTYPE_PATH,
-                'w',
-                driver='GTiff',
-                height=arr.shape[1],
-                width=arr.shape[2],
-                count=4,
-                dtype=rasterized.dtype,
-                crs=rasterio.crs.CRS.from_epsg(25832),
-                transform=transform,
-            )
-            new_dataset.write(arr)
-            new_dataset.close()
+            save_new_raster(arr, self.SOILTYPE_PATH, transform)
 
         soiltype_valuemap = {}
 
