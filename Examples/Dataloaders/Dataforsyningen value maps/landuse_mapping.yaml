@@ -1,0 +1,63 @@
+label_to_color:
+  Building:       [255,   0,   0]
+  Built-up area:  [127,   0,   0]
+  Road:           [  0,   0,   0]
+  Railway:        [127, 127, 127]
+  Recreational:   [100, 200, 127]
+  Mining:         [127,  50,   0]
+  Airport:        [191,   0,   0]
+  Farming:        [227, 230,  70]
+  Forrest:        [  0, 127,  20]
+  Nature:         [127, 255, 127]
+  Lake:           [  0, 200, 255]
+  Stream:         [  0, 120, 255]
+  Sea:            [  0,  40, 255]
+  Non classified: [255, 105, 180]
+  Germany:        [255, 106,   0]
+
+basemap_to_landuse_label:
+  110000: Building                # Building
+  121000: Built-up area           # Build-up area with low buildings
+  121110: Building                # Low building
+  122000: Built-up area           # Build-up area with high buildings
+  122110: Building                # High building
+  123000: Built-up area           # City center
+  123110: Building                # Building in city center
+  124000: Built-up area           # Other build-up area
+  124110: Building                # Building in other build-up area
+  125000: Built-up area           # Industry area
+  125110: Building                # Building in indutry area
+
+  126000: Airport                 # Airport area
+  126110: Building                # Airport building
+
+  130000: Recreational            # Recreational area / sport facility
+  130110: Building                # Building in recreational area / sport facility
+
+  141000: Road                    # Road, fortified
+  142000: Road                    # Road
+
+  150000: Railway                 # Railway
+  150110: Building                # Railway building
+
+  160000: Mining                  # Mining
+
+  211000: Farming                 # Farming intensively, temporary crops
+  212000: Farming                 # Farming intensively, permanent crops
+  220000: Farming                 # Farming extensive
+  230000: Farming                 # Farming no classified
+
+  311000: Forrest                 # Forrest
+  312000: Forrest                 # Forrest, wet
+
+  321000: Nature                  # Nature, dry
+  321220: Nature                  # Nature, dry, farming extensive
+  322000: Nature                  # Nature, wet
+  322220: Nature                  # Nature, wet, farming extensive
+
+  411000: Lake                    # Lake
+  412000: Stream                  # Strem
+  420000: Sea                     # Sea
+
+  800000: Non classified          # Non classified
+  999999: Germany                 # Germany
