@@ -141,26 +141,23 @@ class RasterMono(Raster):
         self.width = int(self.width * factor)
         shape = (self.height, self.width)
 
-        #TODO Consider using "with open"
+        
         # Open RasterIO raster handle
-        raster = rasterio.open(self.path, "r")
+        with rasterio.open(self.path, "r") as raster:
 
-        # Resample original raster data
-        self.data = raster.read(
-            1,
-            out_shape=shape,
-            resampling=self.RESAMPLING_METHODS.get(resampling))
+            # Resample original raster data
+            self.data = raster.read(
+                1,
+                out_shape=shape,
+                resampling=self.RESAMPLING_METHODS.get(resampling))
 
-        # Update transform
-        self.transform = self.transform * raster.transform.scale(
-            (self.width / shape[-1]), (self.height / shape[-2]))
+            # Update transform
+            self.transform = self.transform * raster.transform.scale(
+                (self.width / shape[-1]), (self.height / shape[-2]))
 
-        # Get new raster resolution
-        self.resolution_x = self.transform[0]
-        self.resolution_y = -self.transform[4]
-
-        # Close RasterIO raster handle
-        raster.close()
+            # Get new raster resolution
+            self.resolution_x = self.transform[0]
+            self.resolution_y = -self.transform[4]
 
     def add_cylinder(self, coordinate_x: float, coordinate_y: float,
                      radius: float, height: float):
@@ -273,49 +270,40 @@ class RasterRGBA(Raster):
         self.height = height
         self.width = width
 
-        #TODO Consider using "with open"
         # Create RasterIO raster handle
-        raster = rasterio.open(self.path, "r")
+        with rasterio.open(self.path, "r") as raster:
 
-        #TODO Consider converting this code block to a list comprehension.
-        # Resample RGBA data
-        self.data[0] = raster.read(
-            1,
-            out_shape=shape,
-            resampling=self.RESAMPLING_METHODS.get(resampling))
+            #TODO Consider converting this code block to a list comprehension.
+            # Resample RGBA data
+            self.data[0] = raster.read(
+                1,
+                out_shape=shape,
+                resampling=self.RESAMPLING_METHODS.get(resampling))
 
-        self.data[1] = raster.read(
-            2,
-            out_shape=shape,
-            resampling=self.RESAMPLING_METHODS.get(resampling))
+            self.data[1] = raster.read(
+                2,
+                out_shape=shape,
+                resampling=self.RESAMPLING_METHODS.get(resampling))
 
-        self.data[2] = raster.read(
-            3,
-            out_shape=shape,
-            resampling=self.RESAMPLING_METHODS.get(resampling))
+            self.data[2] = raster.read(
+                3,
+                out_shape=shape,
+                resampling=self.RESAMPLING_METHODS.get(resampling))
 
-        self.data[3] = raster.read(
-            4,
-            out_shape=shape,
-            resampling=self.RESAMPLING_METHODS.get(resampling))
+            self.data[3] = raster.read(
+                4,
+                out_shape=shape,
+                resampling=self.RESAMPLING_METHODS.get(resampling))
 
-        # Update transform
-        self.transform = self.transform * raster.transform.scale(
-            (width / shape[-1]), (height / shape[-2]))
-
-        # Close RasterIO raster handle
-        raster.close()
+            # Update transform
+            self.transform = self.transform * raster.transform.scale(
+                (width / shape[-1]), (height / shape[-2]))
 
     def get_indices(self, lon, lat):
 
-        #TODO Consider using "with open"
         # Create RasterIO raster handle
-        raster = rasterio.open(self.path, "r")
-
-        (py, px) = raster.index(lon, lat)
-        
-        # Close RasterIO raster handle
-        raster.close()
+        with rasterio.open(self.path, "r") as raster:
+            (py, px) = raster.index(lon, lat)
         
         return (py, -px)
 
