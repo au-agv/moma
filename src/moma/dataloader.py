@@ -47,6 +47,36 @@ def save_new_raster(array, path, transform):
     new_dataset.write(array)
     new_dataset.close()
 
+def generate_synthetic_data(w, h, grid_size, bias, scale):
+
+    # Generate a coarse grid of random values
+    gw, gh = w // grid_size + 1, h // grid_size + 1
+    coarse_grid = np.random.rand(gh, gw)  # Random elevations in [0,1]
+
+    # Upsample using bilinear interpolation
+    x = np.linspace(0, gw - 1, w)
+    y = np.linspace(0, gh - 1, h)
+    X, Y = np.meshgrid(x, y)
+
+    # Bilinear interpolation using NumPy
+    x0, y0 = X.astype(int), Y.astype(int)
+    x1, y1 = np.clip(x0 + 1, 0, gw - 1), np.clip(y0 + 1, 0, gh - 1)
+    
+    fx, fy = X - x0, Y - y0  # Fractional part
+    v00 = coarse_grid[y0, x0]  # Bottom-left
+    v10 = coarse_grid[y0, x1]  # Bottom-right
+    v01 = coarse_grid[y1, x0]  # Top-left
+    v11 = coarse_grid[y1, x1]  # Top-right
+    
+    # Bilinear interpolation formula
+    synthetic = (v00 * (1 - fx) * (1 - fy) + 
+                v10 * fx * (1 - fy) +
+                v01 * (1 - fx) * fy + 
+                v11 * fx * fy)
+    
+    return bias + synthetic * scale
+
+
 """
 Data loader should return the following rasters in a consistent grid along with some colormappings for them:
 - Aerial
@@ -345,48 +375,20 @@ class DataloaderDataforsyningen:
         with open(self.MOISTURECONTENT_MAPPING, encoding="utf8") as moisturecontent_valuemap_file:
             moisturecontent_valuemap = yaml.load(moisturecontent_valuemap_file, Loader=yaml.SafeLoader)
 
-        """ Source: random values to illustrate feature
+        """ Source: synthetic data to illustrate feature
         """
         if os.path.isfile(self.MOISTURECONTENT_PATH):
             log.info("Moistuer raster is already stored locally and will not be downloaded again")
         else:
             log.info(f"Creating synthetic moisture content raster")
             
-            w = int(self.query_params["WIDTH"])
-            h = int(self.query_params["HEIGHT"])
-            grid_size = 200
-
-            # Generate a coarse grid of random values
-            gw, gh = w // grid_size + 1, h // grid_size + 1
-            coarse_grid = np.random.rand(gh, gw)  # Random elevations in [0,1]
-
-            # Upsample using bilinear interpolation
-            x = np.linspace(0, gw - 1, w)
-            y = np.linspace(0, gh - 1, h)
-            X, Y = np.meshgrid(x, y)
-
-            # Bilinear interpolation using NumPy
-            x0, y0 = X.astype(int), Y.astype(int)
-            x1, y1 = np.clip(x0 + 1, 0, gw - 1), np.clip(y0 + 1, 0, gh - 1)
-            
-            fx, fy = X - x0, Y - y0  # Fractional part
-            v00 = coarse_grid[y0, x0]  # Bottom-left
-            v10 = coarse_grid[y0, x1]  # Bottom-right
-            v01 = coarse_grid[y1, x0]  # Top-left
-            v11 = coarse_grid[y1, x1]  # Top-right
-            
-            # Bilinear interpolation formula
-            elevation = (v00 * (1 - fx) * (1 - fy) + 
-                        v10 * fx * (1 - fy) +
-                        v01 * (1 - fx) * fy + 
-                        v11 * fx * fy)
-            
-            elevation_scaled = 28 + elevation * 9
+            w, h = int(self.query_params["WIDTH"]), int(self.query_params["HEIGHT"])
+            moinsture = generate_synthetic_data(w, h, grid_size=200, bias=28, scale=9)
 
             # Fill in colordata
             arr = np.zeros((h, w, 3), dtype=int)
             for color, value in moisturecontent_valuemap.items():
-                arr[elevation_scaled >= value] = [int(255 * x) for x in mpl.colors.hex2color(color)]
+                arr[moinsture >= value] = [int(255 * x) for x in mpl.colors.hex2color(color)]
             
             transform = Affine(1, 0, self.coordinates[0], 0, -1, self.coordinates[3])
             

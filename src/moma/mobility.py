@@ -279,6 +279,8 @@ class MobilityMap(Map):
         moisture_content = jnp.array(self.moisture_content_map.moisturearray[go_index_x, go_index_y], dtype=jnp.float32)
         directional_slope = jnp.array(self.slope_map.directional_rasters[self.direction].data[go_index_x, go_index_y])
 
+        #TODO handle high negative slopes as no-go zones, like you would not go down a steep hill
+        
         low_slope_mask = directional_slope < 1
 
         # Take care of negative slopes and filter out for small slopes
