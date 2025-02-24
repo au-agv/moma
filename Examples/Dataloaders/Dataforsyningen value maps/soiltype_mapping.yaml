@@ -1,3 +1,24 @@
+# Transforms soil into type handles by the program
+#TODO handle more different soil types
+label_to_program_label:
+  limestone      : "GW"
+  gravel         : "GW"
+  silt           : "SC"
+  clay           : "CL"
+  sand           : "SC"
+  chalk          : "GW"
+  gyttja         : "CL"
+  peat           : "CL"
+  brown coal     : "SC"
+  marsh          : "SC"
+  mixed layer    : "SC"
+  diatomite      : "SC"
+  volcanic ash   : "SC"
+  ore            : "GW"
+  town           : "GW"
+  other          : "GW"
+  non classified : "GW"
+
 number_to_label:
   1: limestone
   2: gravel
