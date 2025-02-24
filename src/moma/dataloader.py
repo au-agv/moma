@@ -39,7 +39,7 @@ def save_new_raster(array, path, transform):
         driver='GTiff',
         height=array.shape[1],
         width=array.shape[2],
-        count=4,
+        count=array.shape[0],
         dtype=array.dtype,
         crs=rasterio.crs.CRS.from_epsg(25832),
         transform=transform,
@@ -153,7 +153,9 @@ class DataloaderDataforsyningen:
         self.coordinates = coordinates
         self.source = "Dataforsyningen, Datafordeleren, Geus and BaseMap04"
         file_subname = f"_{coordinates[0]}_{coordinates[1]}_{coordinates[2]}_{coordinates[3]}"
-        
+
+        self.transform = Affine(1, 0, coordinates[0], 0, -1, coordinates[3])
+
         if not os.path.exists(site_path / "rasters"):
             os.makedirs(site_path / "rasters")
 
@@ -216,10 +218,8 @@ class DataloaderDataforsyningen:
                 arr = np.moveaxis(arr, 2, 0)
                 # Adding alpha layer
                 arr = np.concatenate((arr, 255*np.ones((1, arr.shape[1], arr.shape[2]), dtype=int)))
-                
-                transform = Affine(1, 0, self.coordinates[0], 0, -1, self.coordinates[3])
 
-                save_new_raster(arr, self.AERIAL_PATH, transform)
+                save_new_raster(arr, self.AERIAL_PATH, self.transform)
 
             else:
                 log.info("Data could not be downloaded from source")
@@ -336,7 +336,6 @@ class DataloaderDataforsyningen:
             log.info("Importing data from local version of GEUS Jordartskort")
             
             gdf = gpd.read_file(self.jordartskort_location)
-            transform = Affine(1, 0, self.coordinates[0], 0, -1, self.coordinates[3])
             
             for jordart, number in jordart_to_soil_number.items():
                 gdf.loc[gdf.sediment == jordart, "sediment"] = number
@@ -344,7 +343,7 @@ class DataloaderDataforsyningen:
             shapes = ((geom, value) for geom, value in zip(gdf.geometry, gdf.sediment))
             
             log.info("Rasterizing data")
-            rasterized = rasterize(shapes, out_shape=(int(self.query_params["HEIGHT"]), int(self.query_params["WIDTH"])), transform=transform, fill=0, dtype=np.int32)
+            rasterized = rasterize(shapes, out_shape=(int(self.query_params["HEIGHT"]), int(self.query_params["WIDTH"])), transform=self.transform, fill=0, dtype=np.int32)
 
             # Initiates map with color corresponding to non classified
             arr = np.zeros((rasterized.shape[0], rasterized.shape[1], 3), dtype=int)
@@ -361,7 +360,7 @@ class DataloaderDataforsyningen:
             # Adding alpha layer
             arr = np.concatenate((arr, 255*np.ones((1, arr.shape[1], arr.shape[2]), dtype=int)))
 
-            save_new_raster(arr, self.SOILTYPE_PATH, transform)
+            save_new_raster(arr, self.SOILTYPE_PATH, self.transform)
 
         soiltype_valuemap = {}
 
@@ -383,20 +382,18 @@ class DataloaderDataforsyningen:
             log.info(f"Creating synthetic moisture content raster")
             
             w, h = int(self.query_params["WIDTH"]), int(self.query_params["HEIGHT"])
-            moinsture = generate_synthetic_data(w, h, grid_size=200, bias=28, scale=9)
+            moisture = generate_synthetic_data(w, h, grid_size=200, bias=28, scale=9)
 
             # Fill in colordata
             arr = np.zeros((h, w, 3), dtype=int)
             for color, value in moisturecontent_valuemap.items():
-                arr[moinsture >= value] = [int(255 * x) for x in mpl.colors.hex2color(color)]
-            
-            transform = Affine(1, 0, self.coordinates[0], 0, -1, self.coordinates[3])
+                arr[moisture >= value] = [int(255 * x) for x in mpl.colors.hex2color(color)]
             
             # Move bands to be the first dimension
             arr = np.moveaxis(arr, 2, 0)
             # Adding alpha layer
             arr = np.concatenate((arr, 255*np.ones((1, arr.shape[1], arr.shape[2]), dtype=int)))
 
-            save_new_raster(arr, self.MOISTURECONTENT_PATH, transform)
+            save_new_raster(arr, self.MOISTURECONTENT_PATH, self.transform)
 
         return RasterRGBA(self.MOISTURECONTENT_PATH), moisturecontent_valuemap
